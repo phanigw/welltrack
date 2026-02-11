@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Diet & Wellness Tracker",
+  "short_name": "Wellness",
+  "description": "Daily diet, steps, training, and sleep tracker",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f2f2f7",
+  "theme_color": "#007aff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

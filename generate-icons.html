@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head><title>Icon Generator</title></head>
+<body>
+<h2>PNG Icon Generator</h2>
+<p>Right-click each image and "Save image as..." to save the PNG icons.</p>
+<div>
+  <h3>192x192</h3>
+  <canvas id="c192" width="192" height="192"></canvas>
+</div>
+<div>
+  <h3>512x512</h3>
+  <canvas id="c512" width="512" height="512"></canvas>
+</div>
+<script>
+function render(canvas) {
+  const s = canvas.width;
+  const ctx = canvas.getContext('2d');
+  const r = s * 108/512; // corner radius
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, s, s);
+  grad.addColorStop(0, '#007AFF');
+  grad.addColorStop(1, '#5856D6');
+
+  // Rounded rect
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(s - r, 0); ctx.quadraticCurveTo(s, 0, s, r);
+  ctx.lineTo(s, s - r); ctx.quadraticCurveTo(s, s, s - r, s);
+  ctx.lineTo(r, s); ctx.quadraticCurveTo(0, s, 0, s - r);
+  ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  const cx = s/2, cy = s * 240/512, cr = s * 120/512;
+
+  // Background ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.lineWidth = s * 16/512;
+  ctx.stroke();
+
+  // Progress ring (75%)
+  ctx.beginPath();
+  ctx.arc(cx, cy, cr, -Math.PI/2, -Math.PI/2 + Math.PI * 1.5);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = s * 16/512;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Checkmark
+  ctx.beginPath();
+  ctx.moveTo(s*208/512, s*240/512);
+  ctx.lineTo(s*244/512, s*276/512);
+  ctx.lineTo(s*312/512, s*208/512);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = s * 20/512;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Text
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.font = `700 ${s*48/512}px -apple-system, system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('WELLNESS', s/2, s*420/512);
+}
+
+render(document.getElementById('c192'));
+render(document.getElementById('c512'));
+
+// Auto-download
+['c192','c512'].forEach(id => {
+  const c = document.getElementById(id);
+  const link = document.createElement('a');
+  link.download = `icon-${c.width}.png`;
+  link.href = c.toDataURL('image/png');
+  const p = document.createElement('p');
+  p.innerHTML = `<a href="${link.href}" download="${link.download}">Download icon-${c.width}.png</a>`;
+  c.parentElement.appendChild(p);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wellness">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#007aff">
+<meta name="description" content="Daily diet, steps, training, and sleep tracker">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="css/styles.css">
+<title>Diet &amp; Wellness Tracker</title>
+</head>
+<body>
+<div id="app">
+  <div class="screens">
+    <div id="screen-calendar" class="screen active"></div>
+    <div id="screen-day" class="screen"></div>
+    <div id="screen-plan" class="screen"></div>
+  </div>
+  <nav id="navbar">
+    <button data-screen="calendar" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="4" width="18" height="18" rx="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Calendar
+    </button>
+    <button data-screen="day">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      Today
+    </button>
+    <button data-screen="plan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      Plan
+    </button>
+  </nav>
+</div>
+<script src="js/app.js" defer></script>
+</body>
+</html>
