@@ -278,4 +278,11 @@ input[type=number],input[type=text]{-webkit-user-select:text;user-select:text}
   border-radius:8px;font-size:15px;text-align:center;
 }
 
+/* ── Import Plan ── */
+.import-card textarea{
+  width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;resize:vertical;
+  -webkit-user-select:text;user-select:text;
+}
+
 .empty-msg{text-align:center;color:var(--text2);padding:40px 20px;font-size:15px}

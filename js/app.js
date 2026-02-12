@@ -235,6 +235,56 @@ function calcScore(log) {
   return { diet: names[diet], steps: names[st], combined: names[combined] };
 }
 
+function parsePlanText(text) {
+  const lines = text.split('\n');
+  const meals = [];
+  let currentMeal = null;
+
+  for (let raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    if (line.indexOf(',') === -1) {
+      // Meal name line
+      currentMeal = { name: line, items: [] };
+      meals.push(currentMeal);
+    } else if (currentMeal) {
+      // Food item line
+      const parts = line.split(',').map(s => s.trim());
+      const name = parts[0] || '';
+      let qty = 1, unit = 'g';
+      let calories = 0, protein = 0, carbs = 0, fat = 0;
+
+      // Parse qty/unit field
+      if (parts[1]) {
+        const qm = parts[1].match(/^([\d.]+)\s*(.*)/);
+        if (qm) {
+          qty = parseFloat(qm[1]) || 1;
+          unit = qm[2].trim() || 'g';
+        } else {
+          unit = parts[1];
+        }
+      }
+
+      // Parse macro fields
+      for (let i = 2; i < parts.length; i++) {
+        const p = parts[i];
+        const cm = p.match(/([\d.]+)\s*cal/i);
+        if (cm) { calories = parseFloat(cm[1]) || 0; continue; }
+        const pm = p.match(/([\d.]+)\s*p/i);
+        if (pm) { protein = parseFloat(pm[1]) || 0; continue; }
+        const cbm = p.match(/([\d.]+)\s*c/i);
+        if (cbm) { carbs = parseFloat(cbm[1]) || 0; continue; }
+        const fm = p.match(/([\d.]+)\s*f/i);
+        if (fm) { fat = parseFloat(fm[1]) || 0; continue; }
+      }
+
+      currentMeal.items.push({ name, qty, unit, protein, carbs, fat, calories });
+    }
+  }
+  return { meals };
+}
+
 function hasDayData(log) {
   if (!log) return false;
   if (safeNum(log.steps) > 0 || safeNum(log.sleep) > 0 || log.resistanceTraining) return true;
@@ -677,6 +727,17 @@ function updateDayCircles(ds) {
 function renderPlan() {
   let html = '<div class="screen-title">Diet Plan</div>';
 
+  html += `<div class="card import-card">
+    <div class="card-title">
+      <span>Import Plan from Text</span>
+      <button class="btn btn-sm btn-secondary" id="btn-toggle-import">Show</button>
+    </div>
+    <div id="import-body" style="display:none">
+      <textarea id="import-text" rows="8" placeholder="Breakfast\nOatmeal, 50g, 180cal, 6p, 27c, 4f\nBanana, 1 medium, 105cal, 1.3p, 27c, 0.4f\n\nLunch\nChicken Breast, 150g, 165cal, 35p, 0c, 5f\nRice, 100g, 120cal, 2p, 28c, 0f"></textarea>
+      <button class="btn btn-sm btn-primary" id="btn-import-text" style="margin-top:8px">Import</button>
+    </div>
+  </div>`;
+
   html += `<div class="card settings-card"><div class="card-title">Settings</div>
     <div class="setting-row"><label>Step Target</label>
       <input type="number" id="set-steps" value="${S.settings.stepTarget}" min="0" step="500" inputmode="numeric">
@@ -739,6 +800,29 @@ function renderPlan() {
 
 function attachPlanEvents() {
   const el = document.getElementById('screen-plan');
+
+  // Import toggle
+  document.getElementById('btn-toggle-import').onclick = () => {
+    const body = document.getElementById('import-body');
+    const btn = document.getElementById('btn-toggle-import');
+    const visible = body.style.display !== 'none';
+    body.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? 'Show' : 'Hide';
+  };
+
+  // Import action
+  document.getElementById('btn-import-text').onclick = () => {
+    const text = document.getElementById('import-text').value;
+    const result = parsePlanText(text);
+    const hasItems = result.meals.some(m => m.items.length > 0);
+    if (!hasItems) {
+      alert('No meals with items found.\n\nExpected format:\nMeal Name\nFood, 50g, 180cal, 6p, 27c, 4f');
+      return;
+    }
+    S.plan = result;
+    savePlan();
+    renderPlan();
+  };
 
   const stInp = document.getElementById('set-steps');
   if (stInp) stInp.addEventListener('input', () => {
