@@ -210,6 +210,36 @@ input[type=text] {
   text-align: center
 }
 
+/* ── Pill Tabs ── */
+.pill-tabs {
+  display: flex;
+  background: var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  margin: 8px 16px 12px;
+  gap: 3px;
+}
+
+.pill-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.pill-tab.active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+}
+
 /* ── Cards ── */
 .card {
   background: var(--card);
@@ -1153,12 +1183,24 @@ input[type=text] {
 
 .cal-icon-rt {
   display: inline-flex;
-  vertical-align: middle
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: #78909c;
+  border-radius: 3px;
+  height: 14px;
+  min-width: 14px;
+  padding: 0 2px;
+  margin-right: 2px;
 }
 
 .cal-icon-rt svg {
   width: 10px;
-  height: 10px
+  height: 10px;
+  fill: #fff;
 }
 
 /* ── Calendar Legend ── */
@@ -1631,6 +1673,328 @@ textarea:focus-visible {
   flex: 1;
   height: 1px;
   background: var(--border)
+}
+
+/* ── Workout Plan Editor ── */
+.workout-plan-card {
+  margin-bottom: 16px
+}
+
+.wp-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wp-type-label {
+  font-size: 14px;
+  font-weight: 500
+}
+
+.wp-type-toggle {
+  display: flex;
+  gap: 6px
+}
+
+.workout-day-editor {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.wd-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wd-hdr input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 400;
+  padding: 4px;
+  color: var(--accent);
+}
+
+.wd-exercise-labels {
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr 32px;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+  padding: 0 0 4px;
+}
+
+.exercise-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr 32px;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
+}
+
+.exercise-row:last-of-type {
+  border-bottom: none
+}
+
+.ex-name-inp {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.ex-type-sel {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 4px;
+  font-size: 12px;
+  background: var(--card);
+  min-width: 0;
+}
+
+.ex-detail-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ex-inp-sm {
+  width: 48px;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  font-family: var(--font-mono);
+  min-width: 0;
+}
+
+.ex-x,
+.ex-at {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 600
+}
+
+.ex-unit {
+  font-size: 11px;
+  color: var(--text2)
+}
+
+.btn-add-sm {
+  margin-top: 6px;
+  padding: 6px;
+  font-size: 12px
+}
+
+/* ── Workout Day Tracker ── */
+.workout-section {
+  margin-bottom: 12px
+}
+
+.wo-day-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wo-day-picker label {
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 500
+}
+
+.wo-day-picker select {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg);
+  font-family: var(--font-serif);
+  color: var(--accent);
+}
+
+.wo-day-label {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: var(--accent);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wo-exercise {
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.wo-exercise:last-of-type {
+  border-bottom: none
+}
+
+.wo-exercise.wo-completed {
+  opacity: .7
+}
+
+.wo-exercise-hdr {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  cursor: pointer
+}
+
+.wo-exercise-info {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px
+}
+
+.wo-exercise-name {
+  font-size: 15px;
+  font-weight: 500
+}
+
+.wo-exercise-target {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+.wo-chevron {
+  font-size: 14px;
+  color: var(--text2);
+  padding: 10px 4px;
+  transition: transform .2s ease;
+}
+
+.wo-chevron.open {
+  transform: rotate(180deg)
+}
+
+.wo-exercise-body {
+  padding-top: 6px
+}
+
+.wo-sets {
+  padding-left: 48px;
+  margin-top: 6px
+}
+
+.wo-set-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.wo-set-num {
+  color: var(--text2);
+  font-size: 12px;
+  width: 44px
+}
+
+.wo-set-val {
+  flex: 1
+}
+
+.btn-xs {
+  min-width: 28px;
+  min-height: 28px;
+  font-size: 14px
+}
+
+.wo-add-set {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 0;
+}
+
+.wo-sets-remaining {
+  font-size: 11px;
+  color: var(--text2);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.wo-cardio-fields {
+  padding-left: 48px;
+  margin-top: 6px
+}
+
+.wo-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.wo-field-row label {
+  font-size: 12px;
+  color: var(--text2);
+  width: 60px
+}
+
+/* ── Rest Timer ── */
+.wo-rest-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(66, 165, 245, .08), rgba(76, 175, 80, .08));
+  border-radius: 10px;
+  animation: timerPulse 2s ease-in-out infinite;
+}
+
+@keyframes timerPulse {
+
+  0%,
+  100% {
+    opacity: 1
+  }
+
+  50% {
+    opacity: .8
+  }
+}
+
+.wo-timer-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2)
+}
+
+.wo-timer-value {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* ── Logout ── */

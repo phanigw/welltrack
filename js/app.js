@@ -4,6 +4,8 @@ import {
   SVG_CHEVRON_LEFT, SVG_CHEVRON_RIGHT, SVG_X_CIRCLE, SVG_PLUS, SVG_DUMBBELL
 } from './helpers.js';
 import { circleSVG, macroBarPct, macroBarColor, renderMacrosCard } from './ui.js';
+import { renderWorkoutPlan, attachWorkoutPlanEvents } from './workout-plan.js';
+import { renderWorkoutSection, attachWorkoutDayEvents } from './workout-day.js';
 
 // ============================================================
 // SERVICE WORKER REGISTRATION
@@ -70,7 +72,8 @@ function getDayLog(dateStr) {
   if (!S.months[parts.mk][parts.day]) {
     S.months[parts.mk][parts.day] = {
       items: {}, extras: [], steps: 0,
-      resistanceTraining: false, sleep: 0, water: 0
+      resistanceTraining: false, sleep: 0, water: 0,
+      workoutDayIndex: null, workout: null
     };
   }
   return S.months[parts.mk][parts.day];
@@ -195,9 +198,34 @@ function calcScore(log) {
   else if (steps >= 6000) st = 1;
   else st = 0;
 
-  const combined = Math.min(diet, st);
+  let workout = 3; // Default to max score (rest day)
+  if (log.resistanceTraining) {
+    // If RT is on, score based on completion of planned exercises
+    if (!log.workout || !log.workout.exercises) {
+      workout = 0;
+    } else {
+      const dayIdx = log.workoutDayIndex || 0;
+      const plannedDay = S.plan.workout?.days?.[dayIdx];
+      if (!plannedDay || plannedDay.exercises.length === 0) {
+        workout = 3; // No planned exercises
+      } else {
+        const total = plannedDay.exercises.length;
+        let completed = 0;
+        for (let i = 0; i < total; i++) {
+          if (log.workout.exercises[i]?.completed) completed++;
+        }
+        const pct = completed / total;
+        if (pct >= 1) workout = 3;
+        else if (pct >= 0.5) workout = 2;
+        else if (pct > 0) workout = 1;
+        else workout = 0;
+      }
+    }
+  }
+
+  const combined = Math.min(diet, steps, workout);
   const names = ['fail', 'bronze', 'silver', 'gold'];
-  return { diet: names[diet], steps: names[st], combined: names[combined] };
+  return { diet: names[diet], steps: names[st], workout: names[workout], combined: names[combined] };
 }
 
 function parsePlanText(text) {
@@ -441,7 +469,15 @@ async function renderCalendar() {
 
     let icons = '';
     if (log) {
-      if (log.resistanceTraining) icons += `<span class="cal-icon-rt" title="Training">${SVG_DUMBBELL}</span>`;
+      if (log.resistanceTraining) {
+        let label = SVG_DUMBBELL;
+        // Try to get abbreviated day name (e.g. "Pu" for Push, "Le" for Legs)
+        if (log.workoutDayIndex !== null && S.plan.workout?.days?.[log.workoutDayIndex]) {
+          const name = S.plan.workout.days[log.workoutDayIndex].name;
+          if (name) label = name.slice(0, 2);
+        }
+        icons += `<span class="cal-icon-rt" title="Training">${label}</span>`;
+      }
       if (safeNum(log.sleep) > 0) icons += `<span>${log.sleep}h</span>`;
       if (safeNum(log.water) > 0) icons += `<span class="cal-icon-water" title="Water">💧</span>`;
     }
@@ -540,10 +576,12 @@ async function renderDay() {
       <button class="nav-btn" id="day-next">${SVG_CHEVRON_RIGHT}</button>
     </div>`;
 
+  // Macros summary (always visible)
   if (S.plan.meals.length > 0) {
     html += renderMacrosCard(consumed, targets);
   }
 
+  // Wellness card (always visible)
   html += `<div class="card">
     <div class="steps-row">
       ${circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--steps-color)', 70)}
@@ -580,61 +618,89 @@ async function renderDay() {
     </div>
   </div>`;
 
-  if (S.plan.meals.length === 0) {
-    html += '<div class="empty-msg">No diet plan set up yet.<br>Go to the Plan tab to create one.</div>';
-  } else {
-    S.plan.meals.forEach((meal, mi) => {
-      html += `<div class="meal-section card"><div class="meal-section-hdr">${escH(meal.name)}</div>`;
-      meal.items.forEach((item, ii) => {
-        const key = mi + '_' + ii;
-        const e = (log.items && log.items[key]) || { checked: false, actualQty: 0 };
-        const aq = safeNum(e.actualQty);
-        const qty = safeNum(item.qty);
-        const ratio = (e.checked && qty > 0 && aq > 0) ? aq / qty : 0;
-        const isModified = e.checked && aq !== qty;
 
-        html += `<div class="day-item ${e.checked ? 'checked' : ''}" data-key="${key}">
-          <button class="day-check ${e.checked ? 'on' : ''}" data-mi="${mi}" data-ii="${ii}"></button>
-          <div class="day-item-body">
-            <div class="day-item-name">${escH(item.name)}</div>
-            ${e.checked
-            ? `${itemMacroLine(item, ratio)}
-                 <div class="qty-ctrl">
-                   <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="-1">&minus;</button>
-                   <span class="qty-val${isModified ? ' modified' : ''}">${aq} ${escH(item.unit)}</span>
-                   <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="1">+</button>
-                 </div>`
-            : `<div class="macro-line-muted">${qty} ${escH(item.unit)}</div>`}
-          </div>
-        </div>`;
-      });
-      html += '</div>';
-    });
-  }
-
-  html += `<div class="extras-hdr">
-    <span>Extra Items (${(log.extras || []).length})</span>
-    <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
+  // Pill tabs
+  html += `<div class="pill-tabs">
+    <button class="pill-tab ${S.dayTab === 'food' ? 'active' : ''}" data-day-tab="food">🍽 Food</button>
+    <button class="pill-tab ${S.dayTab === 'workout' ? 'active' : ''}" data-day-tab="workout">💪 Workout</button>
   </div>`;
-  html += '<div id="extra-form-area"></div>';
 
-  (log.extras || []).forEach((ex, ei) => {
-    html += `<div class="extra-item">
-      <div class="extra-item-info">
-        <div class="extra-item-name">${escH(ex.name)}${ex.qty > 1 ? ' (x' + ex.qty + ')' : ''}</div>
-        <div class="extra-item-macros"><span class="mc-cal">${ex.calories}cal</span> <span class="mc-pro">${ex.protein}p</span> <span class="mc-carb">${ex.carbs}c</span> <span class="mc-fat">${ex.fat}f</span></div>
-      </div>
-      <button class="extra-del" data-ei="${ei}">${SVG_X_CIRCLE}</button>
+  // Tab content
+  if (S.dayTab === 'food') {
+    if (S.plan.meals.length === 0) {
+      html += '<div class="empty-msg">No diet plan set up yet.<br>Go to the Plan tab to create one.</div>';
+    } else {
+      S.plan.meals.forEach((meal, mi) => {
+        html += `<div class="meal-section card"><div class="meal-section-hdr">${escH(meal.name)}</div>`;
+        meal.items.forEach((item, ii) => {
+          const key = mi + '_' + ii;
+          const e = (log.items && log.items[key]) || { checked: false, actualQty: 0 };
+          const aq = safeNum(e.actualQty);
+          const qty = safeNum(item.qty);
+          const ratio = (e.checked && qty > 0 && aq > 0) ? aq / qty : 0;
+          const isModified = e.checked && aq !== qty;
+
+          html += `<div class="day-item ${e.checked ? 'checked' : ''}" data-key="${key}">
+            <button class="day-check ${e.checked ? 'on' : ''}" data-mi="${mi}" data-ii="${ii}"></button>
+            <div class="day-item-body">
+              <div class="day-item-name">${escH(item.name)}</div>
+              ${e.checked
+              ? `${itemMacroLine(item, ratio)}
+                   <div class="qty-ctrl">
+                     <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="-1">&minus;</button>
+                     <span class="qty-val${isModified ? ' modified' : ''}">${aq} ${escH(item.unit)}</span>
+                     <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="1">+</button>
+                   </div>`
+              : `<div class="macro-line-muted">${qty} ${escH(item.unit)}</div>`}
+            </div>
+          </div>`;
+        });
+        html += '</div>';
+      });
+    }
+
+    html += `<div class="extras-hdr">
+      <span>Extra Items (${(log.extras || []).length})</span>
+      <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
     </div>`;
-  });
+    html += '<div id="extra-form-area"></div>';
 
-  if (score) {
-    html += `<div class="scoring-card">
-      <div class="scoring-section"><div class="scoring-label">Diet</div><span class="score-badge ${score.diet}">${score.diet}</span></div>
+    (log.extras || []).forEach((ex, ei) => {
+      html += `<div class="extra-item">
+        <div class="extra-item-info">
+          <div class="extra-item-name">${escH(ex.name)}${ex.qty > 1 ? ' (x' + ex.qty + ')' : ''}</div>
+          <div class="extra-item-macros"><span class="mc-cal">${ex.calories}cal</span> <span class="mc-pro">${ex.protein}p</span> <span class="mc-carb">${ex.carbs}c</span> <span class="mc-fat">${ex.fat}f</span></div>
+        </div>
+        <button class="extra-del" data-ei="${ei}">${SVG_X_CIRCLE}</button>
+      </div>`;
+    });
+
+    if (score) {
+      html += `<div class="scoring-card">
+        <div class="scoring-section"><div class="scoring-label">Diet</div><span class="score-badge ${score.diet}">${score.diet}</span></div>
       <div class="scoring-section"><div class="scoring-label">Steps</div><span class="score-badge ${score.steps}">${score.steps}</span></div>
+      <div class="scoring-section"><div class="scoring-label">Workout</div><span class="score-badge ${score.workout}">${score.workout}</span></div>
       <div class="scoring-divider"></div>
-      <div class="scoring-section"><div class="scoring-label">Overall</div><span class="score-badge ${score.combined}">${score.combined}</span></div>
-    </div>`;
+        <div class="scoring-section"><div class="scoring-label">Overall</div><span class="score-badge ${score.combined}">${score.combined}</span></div>
+      </div>`;
+    }
+  } else {
+    // Workout tab
+    if (log.resistanceTraining && S.plan.workout && S.plan.workout.days.length > 0) {
+      html += renderWorkoutSection(log);
+    } else if (!log.resistanceTraining) {
+      html += `<div class="card" style="padding:24px;text-align:center">
+        <div style="font-size:40px;margin-bottom:8px">💪</div>
+        <div style="font-weight:500;margin-bottom:4px">No workout today</div>
+        <div style="font-size:13px;color:var(--text2)">Toggle Resistance Training above to start logging</div>
+      </div>`;
+    } else {
+      html += `<div class="card" style="padding:24px;text-align:center">
+        <div style="font-size:40px;margin-bottom:8px">🏋️</div>
+        <div style="font-weight:500;margin-bottom:4px">No workout plan</div>
+        <div style="font-size:13px;color:var(--text2)">Go to the Plan tab to set one up</div>
+      </div>`;
+    }
   }
 
   document.getElementById('screen-day').innerHTML = html;
@@ -644,6 +710,14 @@ async function renderDay() {
 
 function attachDayEvents(ds) {
   const el = document.getElementById('screen-day');
+
+  // Pill tab switching
+  el.querySelectorAll('[data-day-tab]').forEach(btn => {
+    btn.onclick = () => {
+      S.dayTab = btn.dataset.dayTab;
+      renderDay();
+    };
+  });
 
   document.getElementById('day-prev').onclick = async () => {
     flushSave();
@@ -695,9 +769,20 @@ function attachDayEvents(ds) {
 
   const rtInp = document.getElementById('inp-rt');
   if (rtInp) rtInp.addEventListener('change', () => {
-    getDayLog(ds).resistanceTraining = rtInp.checked;
+    const log = getDayLog(ds);
+    log.resistanceTraining = rtInp.checked;
+    if (!rtInp.checked) {
+      log.workoutDayIndex = null;
+      log.workout = null;
+    }
     scheduleSave(ds);
+    renderDay();
   });
+
+  // Workout section events
+  if (getDayLog(ds).resistanceTraining) {
+    attachWorkoutDayEvents(ds, getDayLog(ds), getDayLog, scheduleSave, () => renderDay());
+  }
 
   const sleepInp = document.getElementById('inp-sleep');
   if (sleepInp) sleepInp.addEventListener('input', () => {
@@ -836,19 +921,9 @@ function updateDayCircles(ds) {
 // PLAN EDITOR
 // ============================================================
 function renderPlan() {
-  let html = '<div class="screen-title">Diet Plan</div>';
+  let html = '<div class="screen-title">Plan</div>';
 
-  html += `<div class="card import-card">
-    <div class="card-title">
-      <span>Import Plan from Text</span>
-      <button class="btn btn-sm btn-secondary" id="btn-toggle-import">Show</button>
-    </div>
-    <div id="import-body" style="display:none">
-      <textarea id="import-text" rows="8" placeholder="Breakfast\nOatmeal, 50g, 180cal, 6p, 27c, 4f\nBanana, 1 medium, 105cal, 1.3p, 27c, 0.4f\n\nLunch\nChicken Breast, 150g, 165cal, 35p, 0c, 5f\nRice, 100g, 120cal, 2p, 28c, 0f"></textarea>
-      <button class="btn btn-sm btn-primary" id="btn-import-text" style="margin-top:8px">Import</button>
-    </div>
-  </div>`;
-
+  // Settings (always visible)
   html += `<div class="card settings-card"><div class="card-title">Settings</div>
     <div class="setting-row"><label>Step Target</label>
       <input type="number" id="set-steps" value="${S.settings.stepTarget}" min="0" step="500" inputmode="numeric">
@@ -859,24 +934,45 @@ function renderPlan() {
     <div class="setting-row"><label>Water Target (glasses)</label>
       <input type="number" id="set-water" value="${S.settings.waterTarget}" min="1" max="20" step="1" inputmode="numeric">
     </div>
+    <div class="setting-row"><label>Rest Timer (sec)</label>
+      <input type="number" id="set-rest" value="${S.settings.restTimerDuration}" min="10" max="300" step="5" inputmode="numeric">
+    </div>
   </div>`;
 
-  S.plan.meals.forEach((meal, mi) => {
-    html += `<div class="plan-meal" data-mi="${mi}">
+  // Pill tabs
+  html += `<div class="pill-tabs">
+    <button class="pill-tab ${S.planTab === 'diet' ? 'active' : ''}" data-plan-tab="diet">🍽 Diet</button>
+    <button class="pill-tab ${S.planTab === 'workout' ? 'active' : ''}" data-plan-tab="workout">💪 Workout</button>
+  </div>`;
+
+  if (S.planTab === 'diet') {
+    html += `<div class="card import-card">
+      <div class="card-title">
+        <span>Import Plan from Text</span>
+        <button class="btn btn-sm btn-secondary" id="btn-toggle-import">Show</button>
+      </div>
+      <div id="import-body" style="display:none">
+        <textarea id="import-text" rows="8" placeholder="Breakfast\nOatmeal, 50g, 180cal, 6p, 27c, 4f\nBanana, 1 medium, 105cal, 1.3p, 27c, 0.4f\n\nLunch\nChicken Breast, 150g, 165cal, 35p, 0c, 5f\nRice, 100g, 120cal, 2p, 28c, 0f"></textarea>
+        <button class="btn btn-sm btn-primary" id="btn-import-text" style="margin-top:8px">Import</button>
+      </div>
+    </div>`;
+
+    S.plan.meals.forEach((meal, mi) => {
+      html += `<div class="plan-meal" data-mi="${mi}">
       <div class="plan-meal-hdr">
         <input type="text" value="${escH(meal.name)}" data-field="mealname" data-mi="${mi}" placeholder="Meal name">
         <button class="btn-danger" data-action="del-meal" data-mi="${mi}">${SVG_X_CIRCLE}</button>
       </div>
       <div class="plan-items">`;
 
-    if (meal.items.length > 0) {
-      html += `<div class="plan-item-labels">
+      if (meal.items.length > 0) {
+        html += `<div class="plan-item-labels">
         <span>Item</span><span>Qty</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span>
       </div>`;
-    }
+      }
 
-    meal.items.forEach((item, ii) => {
-      html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
+      meal.items.forEach((item, ii) => {
+        html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
         <div class="plan-item-grid">
           <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
           <div class="pi-qty-wrap">
@@ -890,16 +986,20 @@ function renderPlan() {
           <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}" style="min-width:32px;min-height:32px">${SVG_X_CIRCLE}</button>
         </div>
       </div>`;
+      });
+
+      html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">${SVG_PLUS} Add Food Item</button>
+      </div></div>`;
     });
 
-    html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">${SVG_PLUS} Add Food Item</button>
-      </div></div>`;
-  });
-
-  html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">${SVG_PLUS} Add Meal</button>
+    html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">${SVG_PLUS} Add Meal</button>
     <div class="plan-actions">
       <button class="btn btn-primary" id="btn-save-plan">Save Plan</button>
     </div>`;
+  } else {
+    // Workout tab
+    html += renderWorkoutPlan();
+  }
 
   // Data management
   html += `<div class="card" style="margin-top:16px">
@@ -924,28 +1024,41 @@ function renderPlan() {
 function attachPlanEvents() {
   const el = document.getElementById('screen-plan');
 
-  // Import toggle
-  document.getElementById('btn-toggle-import').onclick = () => {
-    const body = document.getElementById('import-body');
-    const btn = document.getElementById('btn-toggle-import');
-    const visible = body.style.display !== 'none';
-    body.style.display = visible ? 'none' : 'block';
-    btn.textContent = visible ? 'Show' : 'Hide';
-  };
+  // Pill tab switching
+  el.querySelectorAll('[data-plan-tab]').forEach(btn => {
+    btn.onclick = () => {
+      S.planTab = btn.dataset.planTab;
+      renderPlan();
+    };
+  });
 
-  // Import action
-  document.getElementById('btn-import-text').onclick = async () => {
-    const text = document.getElementById('import-text').value;
-    const result = parsePlanText(text);
-    const hasItems = result.meals.some(m => m.items.length > 0);
-    if (!hasItems) {
-      alert('No meals with items found.\n\nExpected format:\nMeal Name\nFood, 50g, 180cal, 6p, 27c, 4f');
-      return;
-    }
-    S.plan = result;
-    await savePlan();
-    renderPlan();
-  };
+  // Import toggle (only on diet tab)
+  const importToggle = document.getElementById('btn-toggle-import');
+  if (importToggle) {
+    importToggle.onclick = () => {
+      const body = document.getElementById('import-body');
+      const visible = body.style.display !== 'none';
+      body.style.display = visible ? 'none' : 'block';
+      importToggle.textContent = visible ? 'Show' : 'Hide';
+    };
+  }
+
+  // Import action (only on diet tab)
+  const importBtn = document.getElementById('btn-import-text');
+  if (importBtn) {
+    importBtn.onclick = async () => {
+      const text = document.getElementById('import-text').value;
+      const result = parsePlanText(text);
+      const hasItems = result.meals.some(m => m.items.length > 0);
+      if (!hasItems) {
+        alert('No meals with items found.\n\nExpected format:\nMeal Name\nFood, 50g, 180cal, 6p, 27c, 4f');
+        return;
+      }
+      S.plan = { ...result, workout: S.plan.workout || { type: 'split', days: [] } };
+      await savePlan();
+      renderPlan();
+    };
+  }
 
   const stInp = document.getElementById('set-steps');
   if (stInp) stInp.addEventListener('input', () => {
@@ -959,6 +1072,15 @@ function attachPlanEvents() {
   if (wtInp) wtInp.addEventListener('input', () => {
     S.settings.waterTarget = Math.max(1, parseInt(wtInp.value) || 8);
   });
+  const rtDurInp = document.getElementById('set-rest');
+  if (rtDurInp) rtDurInp.addEventListener('input', () => {
+    S.settings.restTimerDuration = Math.max(10, parseInt(rtDurInp.value) || 90);
+  });
+
+  // Workout plan editor events (only on workout tab)
+  if (S.planTab === 'workout') {
+    attachWorkoutPlanEvents(el, savePlan);
+  }
 
   el.addEventListener('input', (e) => {
     const t = e.target;
