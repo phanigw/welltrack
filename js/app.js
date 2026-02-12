@@ -343,6 +343,49 @@ function circleSVG(val, max, color, size) {
   </div>`;
 }
 
+function macroBarPct(val, max) {
+  if (max <= 0) return 0;
+  return Math.min(Math.round((val / max) * 100), 100);
+}
+
+function macroBarColor(val, max, color) {
+  return val > max && max > 0 ? 'var(--red)' : color;
+}
+
+function renderMacrosCard(consumed, targets) {
+  const calPct = macroBarPct(consumed.calories, targets.calories);
+  const calColor = macroBarColor(consumed.calories, targets.calories, 'var(--cal-color)');
+  const rows = [
+    { label: 'Protein', cls: 'pro', val: consumed.protein, max: targets.protein, color: 'var(--pro-color)', unit: 'g' },
+    { label: 'Carbs', cls: 'carb', val: consumed.carbs, max: targets.carbs, color: 'var(--carb-color)', unit: 'g' },
+    { label: 'Fat', cls: 'fat', val: consumed.fat, max: targets.fat, color: 'var(--fat-color)', unit: 'g' },
+  ];
+
+  let html = `<div class="macros-card" id="macros-card">
+    <div class="macro-main">
+      <span class="macro-main-val">${Math.round(consumed.calories)}</span>
+      <span class="macro-main-target">/ ${Math.round(targets.calories)}</span>
+      <span class="macro-main-label">Calories</span>
+    </div>
+    <div class="macro-main-bar">
+      <div class="macro-main-bar-fill" style="width:${calPct}%;background:${calColor}"></div>
+    </div>
+    <div class="macro-rows">`;
+
+  for (const r of rows) {
+    const pct = macroBarPct(r.val, r.max);
+    const c = macroBarColor(r.val, r.max, r.color);
+    html += `<div class="macro-row">
+      <span class="macro-row-label ${r.cls}">${r.label}</span>
+      <div class="macro-row-bar"><div class="macro-row-bar-fill" style="width:${pct}%;background:${c}"></div></div>
+      <span class="macro-row-vals">${Math.round(r.val)} <small>/ ${Math.round(r.max)}${r.unit}</small></span>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
 // ============================================================
 // NAVIGATION
 // ============================================================
@@ -624,12 +667,7 @@ async function renderDay() {
     </div>`;
 
   if (S.plan.meals.length > 0) {
-    html += `<div class="circles-grid">
-      <div class="circle-wrap">${circleSVG(consumed.calories, targets.calories, 'var(--cal-color)', 78)}<div class="circle-label">Calories</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.protein, targets.protein, 'var(--pro-color)', 78)}<div class="circle-label">Protein</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.carbs, targets.carbs, 'var(--carb-color)', 78)}<div class="circle-label">Carbs</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.fat, targets.fat, 'var(--fat-color)', 78)}<div class="circle-label">Fat</div></div>
-    </div>`;
+    html += renderMacrosCard(consumed, targets);
   }
 
   html += `<div class="card">
@@ -840,19 +878,11 @@ function updateDayCircles(ds) {
   const consumed = consumedMacros(log);
   const score = calcScore(log);
 
-  const circlesGrid = document.querySelector('#screen-day .circles-grid');
-  if (circlesGrid) {
-    const wraps = circlesGrid.querySelectorAll('.circle-wrap');
-    const data = [
-      [consumed.calories, targets.calories, 'var(--cal-color)', 'Calories'],
-      [consumed.protein, targets.protein, 'var(--pro-color)', 'Protein'],
-      [consumed.carbs, targets.carbs, 'var(--carb-color)', 'Carbs'],
-      [consumed.fat, targets.fat, 'var(--fat-color)', 'Fat']
-    ];
-    wraps.forEach((w, i) => {
-      w.innerHTML = circleSVG(data[i][0], data[i][1], data[i][2], 78) +
-        `<div class="circle-label">${data[i][3]}</div>`;
-    });
+  const macrosCard = document.getElementById('macros-card');
+  if (macrosCard) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderMacrosCard(consumed, targets);
+    macrosCard.replaceWith(tmp.firstElementChild);
   }
 
   const stepsRow = document.querySelector('#screen-day .steps-row');
@@ -947,7 +977,7 @@ function renderPlan() {
           <input type="number" class="pi-pro" value="${item.protein}" data-field="protein" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
           <input type="number" class="pi-carb" value="${item.carbs}" data-field="carbs" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
           <input type="number" class="pi-fat" value="${item.fat}" data-field="fat" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
-          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}" style="min-width:28px;min-height:28px">${SVG_X_CIRCLE}</button>
+          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}" style="min-width:32px;min-height:32px">${SVG_X_CIRCLE}</button>
         </div>
       </div>`;
     });
