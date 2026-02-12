@@ -81,6 +81,15 @@ function safeNum(v) {
 }
 
 // ============================================================
+// SVG ICONS
+// ============================================================
+const SVG_CHEVRON_LEFT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 4 7 10 13 16"/></svg>`;
+const SVG_CHEVRON_RIGHT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 4 13 10 7 16"/></svg>`;
+const SVG_X_CIRCLE = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><line x1="7" y1="7" x2="13" y2="13"/><line x1="13" y1="7" x2="7" y2="13"/></svg>`;
+const SVG_PLUS = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="4" x2="10" y2="16"/><line x1="4" y1="10" x2="16" y2="10"/></svg>`;
+const SVG_DUMBBELL = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="10" x2="16" y2="10"/><rect x="2" y="7" width="3" height="6" rx="1"/><rect x="15" y="7" width="3" height="6" rx="1"/></svg>`;
+
+// ============================================================
 // DATA ACCESS
 // ============================================================
 function loadPlan() {
@@ -361,9 +370,9 @@ function renderCalendar() {
   let html = `
     <div class="screen-title">Calendar</div>
     <div class="nav-bar">
-      <button class="nav-btn" id="cal-prev">&lsaquo;</button>
+      <button class="nav-btn" id="cal-prev">${SVG_CHEVRON_LEFT}</button>
       <div class="nav-label">${monthNames[S.calMonth]} ${S.calYear}</div>
-      <button class="nav-btn" id="cal-next">&rsaquo;</button>
+      <button class="nav-btn" id="cal-next">${SVG_CHEVRON_RIGHT}</button>
     </div>
     <div class="cal-weekdays">
       <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
@@ -385,7 +394,7 @@ function renderCalendar() {
 
     let icons = '';
     if (log) {
-      if (log.resistanceTraining) icons += '<span title="Training">&#x1F4AA;</span>';
+      if (log.resistanceTraining) icons += `<span class="cal-icon-rt" title="Training">${SVG_DUMBBELL}</span>`;
       if (safeNum(log.sleep) > 0) icons += `<span>${log.sleep}h</span>`;
     }
 
@@ -440,7 +449,7 @@ function renderDay() {
 
   let html = `
     <div class="nav-bar">
-      <button class="nav-btn" id="day-prev">&lsaquo;</button>
+      <button class="nav-btn" id="day-prev">${SVG_CHEVRON_LEFT}</button>
       <div style="text-align:center">
         <div class="nav-label">${dtLabel}</div>
         ${score
@@ -448,7 +457,7 @@ function renderDay() {
              <div class="score-detail">Diet: ${score.diet} &middot; Steps: ${score.steps}</div>`
           : ''}
       </div>
-      <button class="nav-btn" id="day-next">&rsaquo;</button>
+      <button class="nav-btn" id="day-next">${SVG_CHEVRON_RIGHT}</button>
     </div>`;
 
   // Macro circles
@@ -495,7 +504,7 @@ function renderDay() {
     html += '<div class="empty-msg">No diet plan set up yet.<br>Go to the Plan tab to create one.</div>';
   } else {
     S.plan.meals.forEach((meal, mi) => {
-      html += `<div class="meal-section"><div class="meal-section-hdr">${escH(meal.name)}</div>`;
+      html += `<div class="meal-section card"><div class="meal-section-hdr">${escH(meal.name)}</div>`;
       meal.items.forEach((item, ii) => {
         const key = mi + '_' + ii;
         const e = (log.items && log.items[key]) || { checked: false, actualQty: 0 };
@@ -525,7 +534,7 @@ function renderDay() {
   // Extra items
   html += `<div class="extras-hdr">
     <span>Extra Items (${(log.extras || []).length})</span>
-    <button class="btn btn-sm btn-primary" id="btn-add-extra">+ Add</button>
+    <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
   </div>`;
   html += '<div id="extra-form-area"></div>';
 
@@ -535,7 +544,7 @@ function renderDay() {
         <div class="extra-item-name">${escH(ex.name)}${ex.qty > 1 ? ' (x' + ex.qty + ')' : ''}</div>
         <div class="extra-item-macros">${ex.calories} cal &middot; ${ex.protein}g P &middot; ${ex.carbs}g C &middot; ${ex.fat}g F</div>
       </div>
-      <button class="extra-del" data-ei="${ei}">&times;</button>
+      <button class="extra-del" data-ei="${ei}">${SVG_X_CIRCLE}</button>
     </div>`;
   });
 
@@ -751,7 +760,7 @@ function renderPlan() {
     html += `<div class="plan-meal" data-mi="${mi}">
       <div class="plan-meal-hdr">
         <input type="text" value="${escH(meal.name)}" data-field="mealname" data-mi="${mi}" placeholder="Meal name">
-        <button class="btn-danger" data-action="del-meal" data-mi="${mi}">&times;</button>
+        <button class="btn-danger" data-action="del-meal" data-mi="${mi}">${SVG_X_CIRCLE}</button>
       </div>
       <div class="plan-items">`;
 
@@ -759,7 +768,7 @@ function renderPlan() {
       html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
         <div class="plan-item-row">
           <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
-          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}">&times;</button>
+          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}">${SVG_X_CIRCLE}</button>
         </div>
         <div class="plan-item-row pi-qty">
           <input type="number" value="${item.qty}" data-field="qty" data-mi="${mi}" data-ii="${ii}" min="0" step="0.5" placeholder="Qty" inputmode="decimal">
@@ -774,11 +783,11 @@ function renderPlan() {
       </div>`;
     });
 
-    html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">+ Add Food Item</button>
+    html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">${SVG_PLUS} Add Food Item</button>
       </div></div>`;
   });
 
-  html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">+ Add Meal</button>
+  html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">${SVG_PLUS} Add Meal</button>
     <div class="plan-actions">
       <button class="btn btn-primary" id="btn-save-plan">Save Plan</button>
     </div>`;
