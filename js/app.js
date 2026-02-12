@@ -324,7 +324,7 @@ function circleSVG(val, max, color, size) {
       <circle cx="50" cy="50" r="${r}" class="ring-fg" stroke="${stroke}"
         stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
     </svg>
-    <div class="circle-val">${Math.round(v)}<small>/ ${Math.round(mx)}</small></div>
+    <div class="circle-val" style="color:${color}">${Math.round(v)}<small>/ ${Math.round(mx)}</small></div>
   </div>`;
 }
 
@@ -371,13 +371,20 @@ function renderCalendar() {
     <div class="screen-title">Calendar</div>
     <div class="nav-bar">
       <button class="nav-btn" id="cal-prev">${SVG_CHEVRON_LEFT}</button>
-      <div class="nav-label">${monthNames[S.calMonth]} ${S.calYear}</div>
+      <div style="text-align:center">
+        <div class="nav-label">${monthNames[S.calMonth]} ${S.calYear}</div>
+        <button class="btn-today" id="cal-today">Today</button>
+      </div>
       <button class="nav-btn" id="cal-next">${SVG_CHEVRON_RIGHT}</button>
     </div>
     <div class="cal-weekdays">
       <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
     </div>
     <div class="cal-grid">`;
+
+  // Count tiers for summary
+  let tierCounts = { gold: 0, silver: 0, bronze: 0, fail: 0 };
+  let trackedDays = 0;
 
   for (let i = 0; i < firstDay; i++) {
     html += '<div class="cal-day empty"></div>';
@@ -390,7 +397,11 @@ function renderCalendar() {
     const score = log ? calcScore(log) : null;
     const cls = ['cal-day'];
     if (ds === today) cls.push('today');
-    if (score) cls.push(score.combined);
+    if (score) {
+      cls.push(score.combined);
+      tierCounts[score.combined]++;
+      trackedDays++;
+    }
 
     let icons = '';
     if (log) {
@@ -412,6 +423,28 @@ function renderCalendar() {
   }
 
   html += '</div>';
+
+  // Color legend
+  html += `<div class="cal-legend">
+    <span><span class="dot dot-gold"></span> Gold</span>
+    <span><span class="dot dot-silver"></span> Silver</span>
+    <span><span class="dot dot-bronze"></span> Bronze</span>
+    <span><span class="dot dot-fail"></span> Fail</span>
+  </div>`;
+
+  // Month summary
+  if (trackedDays > 0) {
+    html += `<div class="month-summary">
+      <div class="month-summary-title">Month Summary &mdash; ${trackedDays} day${trackedDays !== 1 ? 's' : ''} tracked</div>
+      <div class="month-summary-counts">
+        <div class="ms-item"><div class="ms-val gold">${tierCounts.gold}</div><div class="ms-label">Gold</div></div>
+        <div class="ms-item"><div class="ms-val silver">${tierCounts.silver}</div><div class="ms-label">Silver</div></div>
+        <div class="ms-item"><div class="ms-val bronze">${tierCounts.bronze}</div><div class="ms-label">Bronze</div></div>
+        <div class="ms-item"><div class="ms-val fail">${tierCounts.fail}</div><div class="ms-label">Fail</div></div>
+      </div>
+    </div>`;
+  }
+
   document.getElementById('screen-calendar').innerHTML = html;
 
   document.getElementById('cal-prev').onclick = () => {
@@ -422,6 +455,12 @@ function renderCalendar() {
   document.getElementById('cal-next').onclick = () => {
     S.calMonth++;
     if (S.calMonth > 11) { S.calMonth = 0; S.calYear++; }
+    renderCalendar();
+  };
+  document.getElementById('cal-today').onclick = () => {
+    const now = new Date();
+    S.calYear = now.getFullYear();
+    S.calMonth = now.getMonth();
     renderCalendar();
   };
   document.querySelectorAll('.cal-day[data-date]').forEach(el => {
@@ -435,6 +474,14 @@ function renderCalendar() {
 // ============================================================
 // DAY VIEW
 // ============================================================
+function itemMacroLine(item, ratio) {
+  const cal = Math.round(safeNum(item.calories) * ratio);
+  const pro = Math.round(safeNum(item.protein) * ratio * 10) / 10;
+  const carb = Math.round(safeNum(item.carbs) * ratio * 10) / 10;
+  const fat = Math.round(safeNum(item.fat) * ratio * 10) / 10;
+  return `<div class="macro-line"><span class="mc-cal">${cal}cal</span><span class="mc-pro">${pro}p</span><span class="mc-carb">${carb}c</span><span class="mc-fat">${fat}f</span></div>`;
+}
+
 function renderDay() {
   const ds = fmtDate(S.selectedDate);
   loadMonth(S.selectedDate.getFullYear(), S.selectedDate.getMonth());
@@ -453,27 +500,26 @@ function renderDay() {
       <div style="text-align:center">
         <div class="nav-label">${dtLabel}</div>
         ${score
-          ? `<div style="margin-top:4px"><span class="score-badge ${score.combined}">${score.combined}</span></div>
-             <div class="score-detail">Diet: ${score.diet} &middot; Steps: ${score.steps}</div>`
+          ? `<div style="margin-top:4px"><span class="score-badge ${score.combined}">${score.combined}</span></div>`
           : ''}
       </div>
       <button class="nav-btn" id="day-next">${SVG_CHEVRON_RIGHT}</button>
     </div>`;
 
-  // Macro circles
+  // Macro circles — 4 in a row with new colors
   if (S.plan.meals.length > 0) {
     html += `<div class="circles-grid">
-      <div class="circle-wrap">${circleSVG(consumed.calories, targets.calories, 'var(--orange)', 90)}<div class="circle-label">Calories</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.protein, targets.protein, 'var(--primary)', 90)}<div class="circle-label">Protein</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.carbs, targets.carbs, 'var(--green)', 90)}<div class="circle-label">Carbs</div></div>
-      <div class="circle-wrap">${circleSVG(consumed.fat, targets.fat, 'var(--purple)', 90)}<div class="circle-label">Fat</div></div>
+      <div class="circle-wrap">${circleSVG(consumed.calories, targets.calories, 'var(--cal-color)', 78)}<div class="circle-label">Calories</div></div>
+      <div class="circle-wrap">${circleSVG(consumed.protein, targets.protein, 'var(--pro-color)', 78)}<div class="circle-label">Protein</div></div>
+      <div class="circle-wrap">${circleSVG(consumed.carbs, targets.carbs, 'var(--carb-color)', 78)}<div class="circle-label">Carbs</div></div>
+      <div class="circle-wrap">${circleSVG(consumed.fat, targets.fat, 'var(--fat-color)', 78)}<div class="circle-label">Fat</div></div>
     </div>`;
   }
 
   // Steps + Wellness
   html += `<div class="card">
     <div class="steps-row">
-      ${circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--teal)', 70)}
+      ${circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--steps-color)', 70)}
       <div class="steps-input-wrap">
         <input type="number" id="inp-steps" value="${log.steps || ''}"
           placeholder="Steps walked" min="0" step="100" inputmode="numeric">
@@ -511,20 +557,21 @@ function renderDay() {
         const aq = safeNum(e.actualQty);
         const qty = safeNum(item.qty);
         const ratio = (e.checked && qty > 0 && aq > 0) ? aq / qty : 0;
-        const itemCal = e.checked ? Math.round(safeNum(item.calories) * ratio) : 0;
+        const isModified = e.checked && aq !== qty;
 
         html += `<div class="day-item ${e.checked ? 'checked' : ''}" data-key="${key}">
           <button class="day-check ${e.checked ? 'on' : ''}" data-mi="${mi}" data-ii="${ii}"></button>
           <div class="day-item-body">
             <div class="day-item-name">${escH(item.name)}</div>
-            <div class="day-item-qty">
-              <input type="number" value="${e.checked ? aq : ''}" min="0" step="0.5"
-                data-mi="${mi}" data-ii="${ii}" class="inp-qty"
-                ${!e.checked ? 'disabled' : ''} inputmode="decimal">
-              <span>/ ${qty} ${escH(item.unit)}</span>
-            </div>
+            ${e.checked
+              ? `${itemMacroLine(item, ratio)}
+                 <div class="qty-ctrl">
+                   <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="-1">&minus;</button>
+                   <span class="qty-val${isModified ? ' modified' : ''}">${aq} ${escH(item.unit)}</span>
+                   <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="1">+</button>
+                 </div>`
+              : `<div class="macro-line-muted">${qty} ${escH(item.unit)}</div>`}
           </div>
-          <div class="day-item-cal">${itemCal} cal</div>
         </div>`;
       });
       html += '</div>';
@@ -542,11 +589,21 @@ function renderDay() {
     html += `<div class="extra-item">
       <div class="extra-item-info">
         <div class="extra-item-name">${escH(ex.name)}${ex.qty > 1 ? ' (x' + ex.qty + ')' : ''}</div>
-        <div class="extra-item-macros">${ex.calories} cal &middot; ${ex.protein}g P &middot; ${ex.carbs}g C &middot; ${ex.fat}g F</div>
+        <div class="extra-item-macros"><span class="mc-cal">${ex.calories}cal</span> <span class="mc-pro">${ex.protein}p</span> <span class="mc-carb">${ex.carbs}c</span> <span class="mc-fat">${ex.fat}f</span></div>
       </div>
       <button class="extra-del" data-ei="${ei}">${SVG_X_CIRCLE}</button>
     </div>`;
   });
+
+  // Scoring summary card
+  if (score) {
+    html += `<div class="scoring-card">
+      <div class="scoring-section"><div class="scoring-label">Diet</div><span class="score-badge ${score.diet}">${score.diet}</span></div>
+      <div class="scoring-section"><div class="scoring-label">Steps</div><span class="score-badge ${score.steps}">${score.steps}</span></div>
+      <div class="scoring-divider"></div>
+      <div class="scoring-section"><div class="scoring-label">Overall</div><span class="score-badge ${score.combined}">${score.combined}</span></div>
+    </div>`;
+  }
 
   document.getElementById('screen-day').innerHTML = html;
   S.extraFormOpen = false;
@@ -585,22 +642,19 @@ function attachDayEvents(ds) {
     };
   });
 
-  // Qty inputs
-  el.querySelectorAll('.inp-qty').forEach(inp => {
-    inp.addEventListener('input', () => {
-      const mi = +inp.dataset.mi, ii = +inp.dataset.ii, key = mi + '_' + ii;
+  // Qty ± buttons
+  el.querySelectorAll('.qty-btn').forEach(btn => {
+    btn.onclick = () => {
+      const mi = +btn.dataset.mi, ii = +btn.dataset.ii, key = mi + '_' + ii;
+      const dir = +btn.dataset.dir;
       const log = getDayLog(ds);
-      if (!log.items) log.items = {};
-      if (!log.items[key]) log.items[key] = { checked: true, actualQty: 0 };
-      log.items[key].actualQty = Math.max(0, parseFloat(inp.value) || 0);
-      scheduleSave(ds);
-      updateDayCircles(ds);
+      if (!log.items || !log.items[key]) return;
       const item = S.plan.meals[mi].items[ii];
-      const qty = safeNum(item.qty);
-      const ratio = qty > 0 ? (log.items[key].actualQty / qty) : 0;
-      const calEl = inp.closest('.day-item').querySelector('.day-item-cal');
-      if (calEl) calEl.textContent = Math.round(safeNum(item.calories) * ratio) + ' cal';
-    });
+      const step = item.unit === 'g' ? 10 : 0.5;
+      log.items[key].actualQty = Math.max(0, safeNum(log.items[key].actualQty) + dir * step);
+      scheduleSave(ds);
+      renderDay();
+    };
   });
 
   // Steps
@@ -686,13 +740,13 @@ function updateDayCircles(ds) {
   if (circlesGrid) {
     const wraps = circlesGrid.querySelectorAll('.circle-wrap');
     const data = [
-      [consumed.calories, targets.calories, 'var(--orange)', 'Calories'],
-      [consumed.protein, targets.protein, 'var(--primary)', 'Protein'],
-      [consumed.carbs, targets.carbs, 'var(--green)', 'Carbs'],
-      [consumed.fat, targets.fat, 'var(--purple)', 'Fat']
+      [consumed.calories, targets.calories, 'var(--cal-color)', 'Calories'],
+      [consumed.protein, targets.protein, 'var(--pro-color)', 'Protein'],
+      [consumed.carbs, targets.carbs, 'var(--carb-color)', 'Carbs'],
+      [consumed.fat, targets.fat, 'var(--fat-color)', 'Fat']
     ];
     wraps.forEach((w, i) => {
-      w.innerHTML = circleSVG(data[i][0], data[i][1], data[i][2], 90) +
+      w.innerHTML = circleSVG(data[i][0], data[i][1], data[i][2], 78) +
         `<div class="circle-label">${data[i][3]}</div>`;
     });
   }
@@ -702,7 +756,7 @@ function updateDayCircles(ds) {
     const cc = stepsRow.querySelector('.circle-container');
     if (cc) {
       const tmp = document.createElement('div');
-      tmp.innerHTML = circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--teal)', 70);
+      tmp.innerHTML = circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--steps-color)', 70);
       cc.replaceWith(tmp.firstElementChild);
     }
   }
@@ -710,22 +764,30 @@ function updateDayCircles(ds) {
   const nb = document.querySelector('#screen-day .nav-bar > div');
   if (nb) {
     let badgeEl = nb.querySelector('.score-badge');
-    let detailEl = nb.querySelector('.score-detail');
     if (score) {
       if (!badgeEl) {
         const d = document.createElement('div');
         d.style.marginTop = '4px';
         d.innerHTML = `<span class="score-badge ${score.combined}">${score.combined}</span>`;
         nb.appendChild(d);
-        const sd = document.createElement('div');
-        sd.className = 'score-detail';
-        sd.innerHTML = `Diet: ${score.diet} &middot; Steps: ${score.steps}`;
-        nb.appendChild(sd);
       } else {
         badgeEl.className = 'score-badge ' + score.combined;
         badgeEl.textContent = score.combined;
-        if (detailEl) detailEl.innerHTML = `Diet: ${score.diet} &middot; Steps: ${score.steps}`;
       }
+    }
+  }
+
+  // Update scoring card if present
+  const scoringCard = document.querySelector('#screen-day .scoring-card');
+  if (scoringCard && score) {
+    const sections = scoringCard.querySelectorAll('.scoring-section');
+    if (sections.length >= 3) {
+      sections[0].querySelector('.score-badge').className = 'score-badge ' + score.diet;
+      sections[0].querySelector('.score-badge').textContent = score.diet;
+      sections[1].querySelector('.score-badge').className = 'score-badge ' + score.steps;
+      sections[1].querySelector('.score-badge').textContent = score.steps;
+      sections[2].querySelector('.score-badge').className = 'score-badge ' + score.combined;
+      sections[2].querySelector('.score-badge').textContent = score.combined;
     }
   }
 }
@@ -764,21 +826,25 @@ function renderPlan() {
       </div>
       <div class="plan-items">`;
 
+    if (meal.items.length > 0) {
+      html += `<div class="plan-item-labels">
+        <span>Item</span><span>Qty</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span>
+      </div>`;
+    }
+
     meal.items.forEach((item, ii) => {
       html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
-        <div class="plan-item-row">
+        <div class="plan-item-grid">
           <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
-          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}">${SVG_X_CIRCLE}</button>
-        </div>
-        <div class="plan-item-row pi-qty">
-          <input type="number" value="${item.qty}" data-field="qty" data-mi="${mi}" data-ii="${ii}" min="0" step="0.5" placeholder="Qty" inputmode="decimal">
-          <input type="text" value="${escH(item.unit)}" data-field="unit" data-mi="${mi}" data-ii="${ii}" placeholder="Unit (g, cup, slice...)">
-        </div>
-        <div class="pi-macros">
-          <div><label>Protein (g)</label><input type="number" value="${item.protein}" data-field="protein" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal"></div>
-          <div><label>Carbs (g)</label><input type="number" value="${item.carbs}" data-field="carbs" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal"></div>
-          <div><label>Fat (g)</label><input type="number" value="${item.fat}" data-field="fat" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal"></div>
-          <div><label>Calories</label><input type="number" value="${item.calories}" data-field="calories" data-mi="${mi}" data-ii="${ii}" min="0" step="1" inputmode="numeric"></div>
+          <div class="pi-qty-wrap">
+            <input type="number" value="${item.qty}" data-field="qty" data-mi="${mi}" data-ii="${ii}" min="0" step="0.5" placeholder="Qty" inputmode="decimal">
+            <input type="text" value="${escH(item.unit)}" data-field="unit" data-mi="${mi}" data-ii="${ii}" placeholder="unit">
+          </div>
+          <input type="number" class="pi-cal" value="${item.calories}" data-field="calories" data-mi="${mi}" data-ii="${ii}" min="0" step="1" inputmode="numeric" placeholder="0">
+          <input type="number" class="pi-pro" value="${item.protein}" data-field="protein" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
+          <input type="number" class="pi-carb" value="${item.carbs}" data-field="carbs" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
+          <input type="number" class="pi-fat" value="${item.fat}" data-field="fat" data-mi="${mi}" data-ii="${ii}" min="0" step="0.1" inputmode="decimal" placeholder="0">
+          <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}" style="min-width:28px;min-height:28px">${SVG_X_CIRCLE}</button>
         </div>
       </div>`;
     });
