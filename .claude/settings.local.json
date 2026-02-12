@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/ai/Claude2 remote -v)",
+      "Bash(gh repo view:*)",
+      "Bash(gh auth status:*)",
+      "Bash(git -C /c/ai/Claude2 push -u origin master)",
+      "Bash(gh api:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(gh repo rename:*)",
+      "Bash(git -C /c/ai/Claude2 remote set-url:*)",
+      "Bash(ren \"C:\\\\ai\\\\Claude2\" welltrack)",
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)",
+      "Bash(cd:*)",
+      "Bash(git -C C:/ai/welltrack remote -v)",
+      "Bash(git -C C:/ai/welltrack status)",
+      "Bash(git -C C:/ai/welltrack log --oneline -5)",
+      "Bash(git -C C:/ai/welltrack diff)",
+      "Bash(git -C C:/ai/welltrack add css/styles.css js/app.js sw.js)",
+      "Bash(git -C C:/ai/welltrack commit -m \"$\\(cat <<''EOF''\nModernize UI: max-width container, SVG icons, touch targets, active feedback\n\nCenter app at 480px with grey desktop surround, replace text/emoji icons with\nconsistent SVG icons \\(chevrons, x-circle, plus, dumbbell\\), expand touch targets\nto 44px, add active/focus-visible states, score badge animation, and meal\nsection cards. Bump service worker cache to v2.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C C:/ai/welltrack push origin master)",
+      "Bash(gh:*)",
+      "Bash(git -C \"C:\\\\ai\\\\welltrack\" status)",
+      "Bash(git -C \"C:\\\\ai\\\\welltrack\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\ai\\\\welltrack\" diff --stat)",
+      "Bash(git -C \"C:\\\\ai\\\\welltrack\" add index.html css/styles.css js/app.js sw.js CLAUDE.md)",
+      "Bash(git -C \"C:\\\\ai\\\\welltrack\" commit -m \"$\\(cat <<''EOF''\nPremium light-mode visual redesign\n\nSerif headings \\(DM Serif Display\\), monospace numbers \\(JetBrains Mono\\),\ngold accent system, color-coded macros, qty +/- controls, calendar\nlegend/summary, scoring summary card, compact plan grid layout,\nfadeIn screen transitions.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "WebSearch",
+      "WebFetch(domain:supabase.com)",
+      "Bash(python -m http.server:*)"
+    ]
+  }
+}

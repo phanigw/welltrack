@@ -70,7 +70,7 @@ function getDayLog(dateStr) {
   if (!S.months[parts.mk][parts.day]) {
     S.months[parts.mk][parts.day] = {
       items: {}, extras: [], steps: 0,
-      resistanceTraining: false, sleep: 0
+      resistanceTraining: false, sleep: 0, water: 0
     };
   }
   return S.months[parts.mk][parts.day];
@@ -443,6 +443,7 @@ async function renderCalendar() {
     if (log) {
       if (log.resistanceTraining) icons += `<span class="cal-icon-rt" title="Training">${SVG_DUMBBELL}</span>`;
       if (safeNum(log.sleep) > 0) icons += `<span>${log.sleep}h</span>`;
+      if (safeNum(log.water) > 0) icons += `<span class="cal-icon-water" title="Water">💧</span>`;
     }
 
     html += `<div class="${cls.join(' ')}" data-date="${ds}">
@@ -566,6 +567,14 @@ async function renderDay() {
           <input type="number" id="inp-sleep" value="${log.sleep || ''}"
             placeholder="0" min="0" max="24" step="0.5" inputmode="decimal">
           <span>/ ${S.settings.sleepTarget} hrs</span>
+        </div>
+      </div>
+      <div class="wellness-item water-item">
+        <label>Water</label>
+        ${circleSVG(log.water || 0, S.settings.waterTarget, 'var(--water-color)', 56)}
+        <div class="water-ctrl">
+          <button class="qty-btn" id="water-minus">&minus;</button>
+          <button class="qty-btn" id="water-plus">+</button>
         </div>
       </div>
     </div>
@@ -696,6 +705,21 @@ function attachDayEvents(ds) {
     scheduleSave(ds);
   });
 
+  const waterMinus = document.getElementById('water-minus');
+  const waterPlus = document.getElementById('water-plus');
+  if (waterMinus) waterMinus.onclick = () => {
+    const log = getDayLog(ds);
+    log.water = Math.max(0, safeNum(log.water) - 1);
+    scheduleSave(ds);
+    updateDayCircles(ds);
+  };
+  if (waterPlus) waterPlus.onclick = () => {
+    const log = getDayLog(ds);
+    log.water = safeNum(log.water) + 1;
+    scheduleSave(ds);
+    updateDayCircles(ds);
+  };
+
   document.getElementById('btn-add-extra').onclick = () => {
     if (S.extraFormOpen) return;
     S.extraFormOpen = true;
@@ -768,6 +792,16 @@ function updateDayCircles(ds) {
     }
   }
 
+  const waterItem = document.querySelector('#screen-day .water-item');
+  if (waterItem) {
+    const cc = waterItem.querySelector('.circle-container');
+    if (cc) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = circleSVG(log.water || 0, S.settings.waterTarget, 'var(--water-color)', 56);
+      cc.replaceWith(tmp.firstElementChild);
+    }
+  }
+
   const nb = document.querySelector('#screen-day .nav-bar > div');
   if (nb) {
     let badgeEl = nb.querySelector('.score-badge');
@@ -821,6 +855,9 @@ function renderPlan() {
     </div>
     <div class="setting-row"><label>Sleep Target (hrs)</label>
       <input type="number" id="set-sleep" value="${S.settings.sleepTarget}" min="0" max="24" step="0.5" inputmode="decimal">
+    </div>
+    <div class="setting-row"><label>Water Target (glasses)</label>
+      <input type="number" id="set-water" value="${S.settings.waterTarget}" min="1" max="20" step="1" inputmode="numeric">
     </div>
   </div>`;
 
@@ -917,6 +954,10 @@ function attachPlanEvents() {
   const slInp = document.getElementById('set-sleep');
   if (slInp) slInp.addEventListener('input', () => {
     S.settings.sleepTarget = Math.max(0, parseFloat(slInp.value) || 8);
+  });
+  const wtInp = document.getElementById('set-water');
+  if (wtInp) wtInp.addEventListener('input', () => {
+    S.settings.waterTarget = Math.max(1, parseInt(wtInp.value) || 8);
   });
 
   el.addEventListener('input', (e) => {
