@@ -8,26 +8,15 @@ if ('serviceWorker' in navigator) {
 }
 
 // ============================================================
-// STORAGE (localStorage — device-local)
+// SUPABASE CLIENT
 // ============================================================
-const store = {
-  get(key) {
-    try {
-      const v = localStorage.getItem(key);
-      return v ? JSON.parse(v) : null;
-    } catch (e) { console.error('store.get', key, e); return null; }
-  },
-  set(key, val) {
-    try {
-      localStorage.setItem(key, JSON.stringify(val));
-    } catch (e) { console.error('store.set', key, e); }
-  }
-};
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
 // STATE
 // ============================================================
 const S = {
+  userId: null,
   screen: 'calendar',
   plan: { meals: [] },
   settings: { stepTarget: 10000, sleepTarget: 8 },
@@ -90,31 +79,52 @@ const SVG_PLUS = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" str
 const SVG_DUMBBELL = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="10" x2="16" y2="10"/><rect x="2" y="7" width="3" height="6" rx="1"/><rect x="15" y="7" width="3" height="6" rx="1"/></svg>`;
 
 // ============================================================
-// DATA ACCESS
+// DATA ACCESS (Supabase)
 // ============================================================
-function loadPlan() {
-  const p = store.get('plan');
-  if (p) S.plan = p;
+async function loadPlan() {
+  const { data, error } = await sb
+    .from('plans')
+    .select('data')
+    .eq('user_id', S.userId)
+    .maybeSingle();
+  if (data && data.data) S.plan = data.data;
 }
 
-function savePlan() {
-  store.set('plan', S.plan);
+async function savePlan() {
+  await sb.from('plans').upsert({
+    user_id: S.userId,
+    data: S.plan,
+    updated_at: new Date().toISOString()
+  });
 }
 
-function loadSettings() {
-  const s = store.get('settings');
-  if (s) S.settings = { ...S.settings, ...s };
+async function loadSettings() {
+  const { data, error } = await sb
+    .from('settings')
+    .select('data')
+    .eq('user_id', S.userId)
+    .maybeSingle();
+  if (data && data.data) S.settings = { ...S.settings, ...data.data };
 }
 
-function saveSettings() {
-  store.set('settings', S.settings);
+async function saveSettings() {
+  await sb.from('settings').upsert({
+    user_id: S.userId,
+    data: S.settings,
+    updated_at: new Date().toISOString()
+  });
 }
 
-function loadMonth(y, m) {
+async function loadMonth(y, m) {
   const k = monthKey(y, m);
   if (S.months[k]) return;
-  const d = store.get('log_' + k);
-  S.months[k] = d || {};
+  const { data, error } = await sb
+    .from('day_logs')
+    .select('data')
+    .eq('user_id', S.userId)
+    .eq('month_key', k)
+    .maybeSingle();
+  S.months[k] = (data && data.data) ? data.data : {};
 }
 
 function getDayLog(dateStr) {
@@ -129,20 +139,29 @@ function getDayLog(dateStr) {
   return S.months[parts.mk][parts.day];
 }
 
+async function saveMonth(mk) {
+  await sb.from('day_logs').upsert({
+    user_id: S.userId,
+    month_key: mk,
+    data: S.months[mk] || {},
+    updated_at: new Date().toISOString()
+  });
+}
+
 // Flush any pending debounced save immediately
 function flushSave() {
   if (S.saveTimer) {
     clearTimeout(S.saveTimer);
     S.saveTimer = null;
     if (S.savePendingMonth) {
-      store.set('log_' + S.savePendingMonth, S.months[S.savePendingMonth] || {});
+      const mk = S.savePendingMonth;
       S.savePendingMonth = null;
+      saveMonth(mk); // fire-and-forget
     }
   }
 }
 
 function scheduleSave(dateStr) {
-  // Flush any previous pending save for a different month first
   const mk = dateStr
     ? dateStr.substring(0, 7)
     : fmtDate(S.selectedDate).substring(0, 7);
@@ -154,7 +173,7 @@ function scheduleSave(dateStr) {
   clearTimeout(S.saveTimer);
   S.savePendingMonth = mk;
   S.saveTimer = setTimeout(() => {
-    store.set('log_' + mk, S.months[mk] || {});
+    saveMonth(mk); // fire-and-forget
     S.saveTimer = null;
     S.savePendingMonth = null;
   }, 400);
@@ -254,17 +273,14 @@ function parsePlanText(text) {
     if (!line) continue;
 
     if (line.indexOf(',') === -1) {
-      // Meal name line
       currentMeal = { name: line, items: [] };
       meals.push(currentMeal);
     } else if (currentMeal) {
-      // Food item line
       const parts = line.split(',').map(s => s.trim());
       const name = parts[0] || '';
       let qty = 1, unit = 'g';
       let calories = 0, protein = 0, carbs = 0, fat = 0;
 
-      // Parse qty/unit field
       if (parts[1]) {
         const qm = parts[1].match(/^([\d.]+)\s*(.*)/);
         if (qm) {
@@ -275,7 +291,6 @@ function parsePlanText(text) {
         }
       }
 
-      // Parse macro fields
       for (let i = 2; i < parts.length; i++) {
         const p = parts[i];
         const cm = p.match(/([\d.]+)\s*cal/i);
@@ -331,7 +346,7 @@ function circleSVG(val, max, color, size) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-function showScreen(name) {
+async function showScreen(name) {
   flushSave();
   S.screen = name;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -339,23 +354,129 @@ function showScreen(name) {
   document.querySelectorAll('#navbar button').forEach(b => {
     b.classList.toggle('active', b.dataset.screen === name);
   });
-  if (name === 'calendar') renderCalendar();
-  else if (name === 'day') renderDay();
+  if (name === 'calendar') await renderCalendar();
+  else if (name === 'day') await renderDay();
   else if (name === 'plan') renderPlan();
 }
 
 document.querySelectorAll('#navbar button').forEach(btn => {
-  btn.onclick = () => {
+  btn.onclick = async () => {
     if (btn.dataset.screen === 'day') S.selectedDate = new Date();
-    showScreen(btn.dataset.screen);
+    await showScreen(btn.dataset.screen);
   };
 });
 
 // ============================================================
+// AUTH SCREEN
+// ============================================================
+function renderAuth(mode) {
+  mode = mode || 'login';
+  const isLogin = mode === 'login';
+  const isSignup = mode === 'signup';
+  const isMagic = mode === 'magic';
+
+  let html = `<div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-title">WellTrack</div>
+      <div class="auth-subtitle">${isLogin ? 'Sign in to your account' : isSignup ? 'Create a new account' : 'Sign in with magic link'}</div>
+      <div class="auth-error" id="auth-error"></div>
+      <div class="auth-success" id="auth-success"></div>
+      <form id="auth-form">
+        <input type="email" id="auth-email" placeholder="Email address" required autocomplete="email">`;
+
+  if (!isMagic) {
+    html += `<input type="password" id="auth-password" placeholder="Password" required autocomplete="${isLogin ? 'current-password' : 'new-password'}" minlength="6">`;
+  }
+
+  html += `<button type="submit" class="btn btn-primary">${isLogin ? 'Sign In' : isSignup ? 'Sign Up' : 'Send Magic Link'}</button>
+      </form>`;
+
+  if (!isMagic) {
+    html += `<div class="auth-divider">or</div>
+      <button class="btn btn-secondary" id="auth-magic-btn" style="width:100%">Send Magic Link</button>`;
+  }
+
+  if (isLogin) {
+    html += `<div class="auth-toggle">Don't have an account? <a id="auth-switch">Sign up</a></div>`;
+  } else if (isSignup) {
+    html += `<div class="auth-toggle">Already have an account? <a id="auth-switch">Sign in</a></div>`;
+  } else {
+    html += `<div class="auth-toggle">Back to <a id="auth-switch">Sign in</a></div>`;
+  }
+
+  html += `</div></div>`;
+
+  document.getElementById('screen-auth').innerHTML = html;
+  attachAuthEvents(mode);
+}
+
+function attachAuthEvents(mode) {
+  const form = document.getElementById('auth-form');
+  const errorEl = document.getElementById('auth-error');
+  const successEl = document.getElementById('auth-success');
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.classList.add('visible');
+    successEl.classList.remove('visible');
+  }
+
+  function showSuccess(msg) {
+    successEl.textContent = msg;
+    successEl.classList.add('visible');
+    errorEl.classList.remove('visible');
+  }
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value.trim();
+    const submitBtn = form.querySelector('button[type=submit]');
+    submitBtn.disabled = true;
+    errorEl.classList.remove('visible');
+    successEl.classList.remove('visible');
+
+    try {
+      if (mode === 'magic') {
+        const { error } = await sb.auth.signInWithOtp({ email });
+        if (error) throw error;
+        showSuccess('Check your email for the magic link!');
+      } else if (mode === 'signup') {
+        const password = document.getElementById('auth-password').value;
+        const { error } = await sb.auth.signUp({ email, password });
+        if (error) throw error;
+        showSuccess('Account created! Check your email to confirm, then sign in.');
+      } else {
+        const password = document.getElementById('auth-password').value;
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // onAuthStateChange will handle navigation
+      }
+    } catch (err) {
+      showError(err.message || 'An error occurred');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  };
+
+  const switchLink = document.getElementById('auth-switch');
+  if (switchLink) {
+    switchLink.onclick = () => {
+      if (mode === 'login') renderAuth('signup');
+      else renderAuth('login');
+    };
+  }
+
+  const magicBtn = document.getElementById('auth-magic-btn');
+  if (magicBtn) {
+    magicBtn.onclick = () => renderAuth('magic');
+  }
+}
+
+// ============================================================
 // CALENDAR
 // ============================================================
-function renderCalendar() {
-  loadMonth(S.calYear, S.calMonth);
+async function renderCalendar() {
+  await loadMonth(S.calYear, S.calMonth);
   const mk = monthKey(S.calYear, S.calMonth);
   const logs = S.months[mk] || {};
   const today = todayStr();
@@ -382,7 +503,6 @@ function renderCalendar() {
     </div>
     <div class="cal-grid">`;
 
-  // Count tiers for summary
   let tierCounts = { gold: 0, silver: 0, bronze: 0, fail: 0 };
   let trackedDays = 0;
 
@@ -415,7 +535,6 @@ function renderCalendar() {
     </div>`;
   }
 
-  // Trailing empty cells to fill last row
   const totalCells = firstDay + daysInMonth;
   const trailing = (7 - (totalCells % 7)) % 7;
   for (let i = 0; i < trailing; i++) {
@@ -424,7 +543,6 @@ function renderCalendar() {
 
   html += '</div>';
 
-  // Color legend
   html += `<div class="cal-legend">
     <span><span class="dot dot-gold"></span> Gold</span>
     <span><span class="dot dot-silver"></span> Silver</span>
@@ -432,7 +550,6 @@ function renderCalendar() {
     <span><span class="dot dot-fail"></span> Fail</span>
   </div>`;
 
-  // Month summary
   if (trackedDays > 0) {
     html += `<div class="month-summary">
       <div class="month-summary-title">Month Summary &mdash; ${trackedDays} day${trackedDays !== 1 ? 's' : ''} tracked</div>
@@ -447,26 +564,26 @@ function renderCalendar() {
 
   document.getElementById('screen-calendar').innerHTML = html;
 
-  document.getElementById('cal-prev').onclick = () => {
+  document.getElementById('cal-prev').onclick = async () => {
     S.calMonth--;
     if (S.calMonth < 0) { S.calMonth = 11; S.calYear--; }
-    renderCalendar();
+    await renderCalendar();
   };
-  document.getElementById('cal-next').onclick = () => {
+  document.getElementById('cal-next').onclick = async () => {
     S.calMonth++;
     if (S.calMonth > 11) { S.calMonth = 0; S.calYear++; }
-    renderCalendar();
+    await renderCalendar();
   };
-  document.getElementById('cal-today').onclick = () => {
+  document.getElementById('cal-today').onclick = async () => {
     const now = new Date();
     S.calYear = now.getFullYear();
     S.calMonth = now.getMonth();
-    renderCalendar();
+    await renderCalendar();
   };
   document.querySelectorAll('.cal-day[data-date]').forEach(el => {
-    el.onclick = () => {
+    el.onclick = async () => {
       S.selectedDate = parseDate(el.dataset.date);
-      showScreen('day');
+      await showScreen('day');
     };
   });
 }
@@ -482,9 +599,9 @@ function itemMacroLine(item, ratio) {
   return `<div class="macro-line"><span class="mc-cal">${cal}cal</span><span class="mc-pro">${pro}p</span><span class="mc-carb">${carb}c</span><span class="mc-fat">${fat}f</span></div>`;
 }
 
-function renderDay() {
+async function renderDay() {
   const ds = fmtDate(S.selectedDate);
-  loadMonth(S.selectedDate.getFullYear(), S.selectedDate.getMonth());
+  await loadMonth(S.selectedDate.getFullYear(), S.selectedDate.getMonth());
   const log = getDayLog(ds);
   const targets = planTargets();
   const consumed = consumedMacros(log);
@@ -506,7 +623,6 @@ function renderDay() {
       <button class="nav-btn" id="day-next">${SVG_CHEVRON_RIGHT}</button>
     </div>`;
 
-  // Macro circles — 4 in a row with new colors
   if (S.plan.meals.length > 0) {
     html += `<div class="circles-grid">
       <div class="circle-wrap">${circleSVG(consumed.calories, targets.calories, 'var(--cal-color)', 78)}<div class="circle-label">Calories</div></div>
@@ -516,7 +632,6 @@ function renderDay() {
     </div>`;
   }
 
-  // Steps + Wellness
   html += `<div class="card">
     <div class="steps-row">
       ${circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--steps-color)', 70)}
@@ -545,7 +660,6 @@ function renderDay() {
     </div>
   </div>`;
 
-  // Meals
   if (S.plan.meals.length === 0) {
     html += '<div class="empty-msg">No diet plan set up yet.<br>Go to the Plan tab to create one.</div>';
   } else {
@@ -578,7 +692,6 @@ function renderDay() {
     });
   }
 
-  // Extra items
   html += `<div class="extras-hdr">
     <span>Extra Items (${(log.extras || []).length})</span>
     <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
@@ -595,7 +708,6 @@ function renderDay() {
     </div>`;
   });
 
-  // Scoring summary card
   if (score) {
     html += `<div class="scoring-card">
       <div class="scoring-section"><div class="scoring-label">Diet</div><span class="score-badge ${score.diet}">${score.diet}</span></div>
@@ -613,19 +725,17 @@ function renderDay() {
 function attachDayEvents(ds) {
   const el = document.getElementById('screen-day');
 
-  // Day navigation — flush pending save before changing day
-  document.getElementById('day-prev').onclick = () => {
+  document.getElementById('day-prev').onclick = async () => {
     flushSave();
     S.selectedDate.setDate(S.selectedDate.getDate() - 1);
-    renderDay();
+    await renderDay();
   };
-  document.getElementById('day-next').onclick = () => {
+  document.getElementById('day-next').onclick = async () => {
     flushSave();
     S.selectedDate.setDate(S.selectedDate.getDate() + 1);
-    renderDay();
+    await renderDay();
   };
 
-  // Checkboxes
   el.querySelectorAll('.day-check').forEach(btn => {
     btn.onclick = () => {
       const mi = +btn.dataset.mi, ii = +btn.dataset.ii, key = mi + '_' + ii;
@@ -642,7 +752,6 @@ function attachDayEvents(ds) {
     };
   });
 
-  // Qty ± buttons
   el.querySelectorAll('.qty-btn').forEach(btn => {
     btn.onclick = () => {
       const mi = +btn.dataset.mi, ii = +btn.dataset.ii, key = mi + '_' + ii;
@@ -657,7 +766,6 @@ function attachDayEvents(ds) {
     };
   });
 
-  // Steps
   const stepsInp = document.getElementById('inp-steps');
   if (stepsInp) stepsInp.addEventListener('input', () => {
     getDayLog(ds).steps = Math.max(0, parseInt(stepsInp.value) || 0);
@@ -665,21 +773,18 @@ function attachDayEvents(ds) {
     updateDayCircles(ds);
   });
 
-  // Resistance training
   const rtInp = document.getElementById('inp-rt');
   if (rtInp) rtInp.addEventListener('change', () => {
     getDayLog(ds).resistanceTraining = rtInp.checked;
     scheduleSave(ds);
   });
 
-  // Sleep
   const sleepInp = document.getElementById('inp-sleep');
   if (sleepInp) sleepInp.addEventListener('input', () => {
     getDayLog(ds).sleep = Math.max(0, parseFloat(sleepInp.value) || 0);
     scheduleSave(ds);
   });
 
-  // Add extra
   document.getElementById('btn-add-extra').onclick = () => {
     if (S.extraFormOpen) return;
     S.extraFormOpen = true;
@@ -719,7 +824,6 @@ function attachDayEvents(ds) {
     };
   };
 
-  // Delete extra
   el.querySelectorAll('.extra-del').forEach(btn => {
     btn.onclick = () => {
       const log = getDayLog(ds);
@@ -777,7 +881,6 @@ function updateDayCircles(ds) {
     }
   }
 
-  // Update scoring card if present
   const scoringCard = document.querySelector('#screen-day .scoring-card');
   if (scoringCard && score) {
     const sections = scoringCard.querySelectorAll('.scoring-section');
@@ -869,6 +972,11 @@ function renderPlan() {
     </div>
   </div>`;
 
+  // Logout
+  html += `<div class="card" style="margin-top:4px">
+    <button class="btn-logout" id="btn-logout">Sign Out</button>
+  </div>`;
+
   document.getElementById('screen-plan').innerHTML = html;
   attachPlanEvents();
 }
@@ -886,7 +994,7 @@ function attachPlanEvents() {
   };
 
   // Import action
-  document.getElementById('btn-import-text').onclick = () => {
+  document.getElementById('btn-import-text').onclick = async () => {
     const text = document.getElementById('import-text').value;
     const result = parsePlanText(text);
     const hasItems = result.meals.some(m => m.items.length > 0);
@@ -895,7 +1003,7 @@ function attachPlanEvents() {
       return;
     }
     S.plan = result;
-    savePlan();
+    await savePlan();
     renderPlan();
   };
 
@@ -953,19 +1061,28 @@ function attachPlanEvents() {
     renderPlan();
   };
 
-  document.getElementById('btn-save-plan').onclick = () => {
-    savePlan();
-    saveSettings();
+  document.getElementById('btn-save-plan').onclick = async () => {
+    await Promise.all([savePlan(), saveSettings()]);
     const btn = document.getElementById('btn-save-plan');
     btn.textContent = 'Saved!';
     btn.style.background = 'var(--green)';
     setTimeout(() => { btn.textContent = 'Save Plan'; btn.style.background = ''; }, 1500);
   };
 
-  // Export
-  document.getElementById('btn-export').onclick = () => {
-    const data = { plan: S.plan, settings: S.settings, months: S.months };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  // Export — fetch ALL months from Supabase
+  document.getElementById('btn-export').onclick = async () => {
+    const { data: rows } = await sb
+      .from('day_logs')
+      .select('month_key, data')
+      .eq('user_id', S.userId);
+    const allMonths = {};
+    if (rows) {
+      for (const row of rows) {
+        allMonths[row.month_key] = row.data;
+      }
+    }
+    const exportData = { plan: S.plan, settings: S.settings, months: allMonths };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -979,15 +1096,24 @@ function attachPlanEvents() {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (data.plan) { S.plan = data.plan; savePlan(); }
-        if (data.settings) { S.settings = { ...S.settings, ...data.settings }; saveSettings(); }
+        if (data.plan) { S.plan = data.plan; await savePlan(); }
+        if (data.settings) { S.settings = { ...S.settings, ...data.settings }; await saveSettings(); }
         if (data.months) {
+          const upserts = [];
           for (const mk in data.months) {
             S.months[mk] = data.months[mk];
-            store.set('log_' + mk, data.months[mk]);
+            upserts.push({
+              user_id: S.userId,
+              month_key: mk,
+              data: data.months[mk],
+              updated_at: new Date().toISOString()
+            });
+          }
+          if (upserts.length > 0) {
+            await sb.from('day_logs').upsert(upserts);
           }
         }
         alert('Data imported successfully.');
@@ -998,23 +1124,77 @@ function attachPlanEvents() {
     };
     reader.readAsText(file);
   };
+
+  // Logout
+  document.getElementById('btn-logout').onclick = async () => {
+    await sb.auth.signOut();
+  };
 }
 
 // ============================================================
-// INIT
+// INIT & AUTH FLOW
 // ============================================================
-function init() {
-  loadPlan();
-  loadSettings();
+function showLoadingOverlay(show) {
+  const overlay = document.getElementById('loading-overlay');
+  if (show) overlay.classList.remove('hidden');
+  else overlay.classList.add('hidden');
+}
+
+async function initApp(userId) {
+  S.userId = userId;
+  S.months = {};
   const now = new Date();
   S.calYear = now.getFullYear();
   S.calMonth = now.getMonth();
   S.selectedDate = new Date(now);
-  loadMonth(S.calYear, S.calMonth);
-  renderCalendar();
+
+  showLoadingOverlay(true);
+  try {
+    const mk = monthKey(S.calYear, S.calMonth);
+    await Promise.all([
+      loadPlan(),
+      loadSettings(),
+      loadMonth(S.calYear, S.calMonth)
+    ]);
+  } catch (err) {
+    console.error('initApp error:', err);
+  }
+
+  // Show navbar, hide auth
+  document.getElementById('navbar').style.display = '';
+  showLoadingOverlay(false);
+  await showScreen('calendar');
 }
+
+function showAuthScreen() {
+  S.userId = null;
+  S.months = {};
+  document.getElementById('navbar').style.display = 'none';
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-auth').classList.add('active');
+  renderAuth('login');
+  showLoadingOverlay(false);
+}
+
+// Listen for auth state changes
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    initApp(session.user.id);
+  } else if (event === 'SIGNED_OUT') {
+    showAuthScreen();
+  }
+});
+
+// Initial session check
+(async () => {
+  showLoadingOverlay(true);
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await initApp(session.user.id);
+  } else {
+    showAuthScreen();
+  }
+})();
 
 // Flush save before the user leaves the page
 window.addEventListener('beforeunload', flushSave);
-
-init();

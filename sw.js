@@ -1,8 +1,9 @@
-const CACHE_NAME = 'wellness-tracker-v3';
+const CACHE_NAME = 'wellness-tracker-v4';
 const ASSETS = [
   './',
   './index.html',
   './css/styles.css',
+  './js/config.js',
   './js/app.js',
   './manifest.json',
   './icons/icon.svg'
@@ -37,6 +38,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
+
+  // Skip Supabase API calls — let them go straight to network
+  if (url.hostname.endsWith('.supabase.co')) return;
 
   // Network-first for HTML (ensures updates reach users quickly)
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
