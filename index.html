@@ -18,8 +18,7 @@
 <link rel="stylesheet" href="css/styles.css">
 <title>WellTrack</title>
 <style>input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}input[type=number]{-moz-appearance:textfield;appearance:textfield}</style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="js/config.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="app">
@@ -53,10 +52,6 @@
     </button>
   </nav>
 </div>
-<script src="js/app.js" defer></script>
-<script>
-// Ensure scripts load in correct order: supabase -> config -> app
-// All use defer so they execute in document order
-</script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

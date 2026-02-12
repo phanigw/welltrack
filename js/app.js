@@ -1,3 +1,10 @@
+import { sb, S } from './state.js';
+import {
+  todayStr, fmtDate, monthKey, parseDateParts, parseDate, escH, safeNum,
+  SVG_CHEVRON_LEFT, SVG_CHEVRON_RIGHT, SVG_X_CIRCLE, SVG_PLUS, SVG_DUMBBELL
+} from './helpers.js';
+import { circleSVG, macroBarPct, macroBarColor, renderMacrosCard } from './ui.js';
+
 // ============================================================
 // SERVICE WORKER REGISTRATION
 // ============================================================
@@ -7,76 +14,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ============================================================
-// SUPABASE CLIENT
-// ============================================================
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// ============================================================
-// STATE
-// ============================================================
-const S = {
-  userId: null,
-  screen: 'calendar',
-  plan: { meals: [] },
-  settings: { stepTarget: 10000, sleepTarget: 8 },
-  selectedDate: new Date(),
-  calYear: new Date().getFullYear(),
-  calMonth: new Date().getMonth(),
-  months: {},
-  saveTimer: null,
-  savePendingMonth: null,
-  extraFormOpen: false
-};
-
-// ============================================================
-// HELPERS
-// ============================================================
-function todayStr() { return fmtDate(new Date()); }
-
-function fmtDate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
-
-function monthKey(y, m) {
-  return `${y}-${String(m + 1).padStart(2, '0')}`;
-}
-
-function parseDateParts(s) {
-  const p = s.split('-');
-  return { year: p[0], month: p[1], day: p[2], mk: p[0] + '-' + p[1] };
-}
-
-function parseDate(s) {
-  const p = s.split('-');
-  return new Date(+p[0], +p[1] - 1, +p[2]);
-}
-
-function escH(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-// ============================================================
-// SVG ICONS
-// ============================================================
-const SVG_CHEVRON_LEFT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 4 7 10 13 16"/></svg>`;
-const SVG_CHEVRON_RIGHT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 4 13 10 7 16"/></svg>`;
-const SVG_X_CIRCLE = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="8"/><line x1="7" y1="7" x2="13" y2="13"/><line x1="13" y1="7" x2="7" y2="13"/></svg>`;
-const SVG_PLUS = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="4" x2="10" y2="16"/><line x1="4" y1="10" x2="16" y2="10"/></svg>`;
-const SVG_DUMBBELL = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="10" x2="16" y2="10"/><rect x="2" y="7" width="3" height="6" rx="1"/><rect x="15" y="7" width="3" height="6" rx="1"/></svg>`;
 
 // ============================================================
 // DATA ACCESS (Supabase)
@@ -321,70 +258,6 @@ function hasDayData(log) {
   return false;
 }
 
-// ============================================================
-// CIRCLE SVG
-// ============================================================
-function circleSVG(val, max, color, size) {
-  const v = Math.max(0, safeNum(val));
-  const mx = Math.max(0, safeNum(max));
-  const r = 40;
-  const circ = 2 * Math.PI * r;
-  const pct = mx > 0 ? Math.max(0, Math.min(v / mx, 1)) : 0;
-  const isOver = v > mx && mx > 0;
-  const stroke = isOver ? 'var(--red)' : color;
-  const offset = circ * (1 - pct);
-  return `<div class="circle-container" style="width:${size}px;height:${size}px">
-    <svg viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="${r}" class="ring-bg"/>
-      <circle cx="50" cy="50" r="${r}" class="ring-fg" stroke="${stroke}"
-        stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
-    </svg>
-    <div class="circle-val" style="color:${color}">${Math.round(v)}<small>/ ${Math.round(mx)}</small></div>
-  </div>`;
-}
-
-function macroBarPct(val, max) {
-  if (max <= 0) return 0;
-  return Math.min(Math.round((val / max) * 100), 100);
-}
-
-function macroBarColor(val, max, color) {
-  return val > max && max > 0 ? 'var(--red)' : color;
-}
-
-function renderMacrosCard(consumed, targets) {
-  const calPct = macroBarPct(consumed.calories, targets.calories);
-  const calColor = macroBarColor(consumed.calories, targets.calories, 'var(--cal-color)');
-  const rows = [
-    { label: 'Protein', cls: 'pro', val: consumed.protein, max: targets.protein, color: 'var(--pro-color)', unit: 'g' },
-    { label: 'Carbs', cls: 'carb', val: consumed.carbs, max: targets.carbs, color: 'var(--carb-color)', unit: 'g' },
-    { label: 'Fat', cls: 'fat', val: consumed.fat, max: targets.fat, color: 'var(--fat-color)', unit: 'g' },
-  ];
-
-  let html = `<div class="macros-card" id="macros-card">
-    <div class="macro-main">
-      <span class="macro-main-val">${Math.round(consumed.calories)}</span>
-      <span class="macro-main-target">/ ${Math.round(targets.calories)}</span>
-      <span class="macro-main-label">Calories</span>
-    </div>
-    <div class="macro-main-bar">
-      <div class="macro-main-bar-fill" style="width:${calPct}%;background:${calColor}"></div>
-    </div>
-    <div class="macro-rows">`;
-
-  for (const r of rows) {
-    const pct = macroBarPct(r.val, r.max);
-    const c = macroBarColor(r.val, r.max, r.color);
-    html += `<div class="macro-row">
-      <span class="macro-row-label ${r.cls}">${r.label}</span>
-      <div class="macro-row-bar"><div class="macro-row-bar-fill" style="width:${pct}%;background:${c}"></div></div>
-      <span class="macro-row-vals">${Math.round(r.val)} <small>/ ${Math.round(r.max)}${r.unit}</small></span>
-    </div>`;
-  }
-
-  html += `</div></div>`;
-  return html;
-}
 
 // ============================================================
 // NAVIGATION
@@ -524,8 +397,8 @@ async function renderCalendar() {
   const logs = S.months[mk] || {};
   const today = todayStr();
   const monthNames = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
   const firstDay = new Date(S.calYear, S.calMonth, 1).getDay();
@@ -650,8 +523,8 @@ async function renderDay() {
   const consumed = consumedMacros(log);
   const score = calcScore(log);
 
-  const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const dtLabel = `${weekdays[S.selectedDate.getDay()]}, ${monthNames[S.selectedDate.getMonth()]} ${S.selectedDate.getDate()}, ${S.selectedDate.getFullYear()}`;
 
   let html = `
@@ -660,8 +533,8 @@ async function renderDay() {
       <div style="text-align:center">
         <div class="nav-label">${dtLabel}</div>
         ${score
-          ? `<div style="margin-top:4px"><span class="score-badge ${score.combined}">${score.combined}</span></div>`
-          : ''}
+      ? `<div style="margin-top:4px"><span class="score-badge ${score.combined}">${score.combined}</span></div>`
+      : ''}
       </div>
       <button class="nav-btn" id="day-next">${SVG_CHEVRON_RIGHT}</button>
     </div>`;
@@ -716,13 +589,13 @@ async function renderDay() {
           <div class="day-item-body">
             <div class="day-item-name">${escH(item.name)}</div>
             ${e.checked
-              ? `${itemMacroLine(item, ratio)}
+            ? `${itemMacroLine(item, ratio)}
                  <div class="qty-ctrl">
                    <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="-1">&minus;</button>
                    <span class="qty-val${isModified ? ' modified' : ''}">${aq} ${escH(item.unit)}</span>
                    <button class="qty-btn" data-mi="${mi}" data-ii="${ii}" data-dir="1">+</button>
                  </div>`
-              : `<div class="macro-line-muted">${qty} ${escH(item.unit)}</div>`}
+            : `<div class="macro-line-muted">${qty} ${escH(item.unit)}</div>`}
           </div>
         </div>`;
       });
