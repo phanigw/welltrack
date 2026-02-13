@@ -1,54 +1,86 @@
 import { sb, S } from './state.js';
 import { monthKey, fmtDate, parseDateParts } from './helpers.js';
+import { showToast } from './ui.js';
 
 // ============================================================
 // DATA ACCESS (Supabase)
 // ============================================================
 
 export async function loadPlan() {
-    const { data, error } = await sb
-        .from('plans')
-        .select('data')
-        .eq('user_id', S.userId)
-        .maybeSingle();
-    if (data && data.data) S.plan = data.data;
+    try {
+        const { data, error } = await sb
+            .from('plans')
+            .select('data')
+            .eq('user_id', S.userId)
+            .maybeSingle();
+        if (error) throw error;
+        if (data && data.data) S.plan = data.data;
+    } catch (err) {
+        console.error('loadPlan error:', err);
+        showToast('Failed to load plan', 'error');
+    }
 }
 
 export async function savePlan() {
-    await sb.from('plans').upsert({
-        user_id: S.userId,
-        data: S.plan,
-        updated_at: new Date().toISOString()
-    });
+    try {
+        const { error } = await sb.from('plans').upsert({
+            user_id: S.userId,
+            data: S.plan,
+            updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+    } catch (err) {
+        console.error('savePlan error:', err);
+        showToast('Failed to save plan', 'error');
+    }
 }
 
 export async function loadSettings() {
-    const { data, error } = await sb
-        .from('settings')
-        .select('data')
-        .eq('user_id', S.userId)
-        .maybeSingle();
-    if (data && data.data) S.settings = { ...S.settings, ...data.data };
+    try {
+        const { data, error } = await sb
+            .from('settings')
+            .select('data')
+            .eq('user_id', S.userId)
+            .maybeSingle();
+        if (error) throw error;
+        if (data && data.data) S.settings = { ...S.settings, ...data.data };
+    } catch (err) {
+        console.error('loadSettings error:', err);
+        showToast('Failed to load settings', 'error');
+    }
 }
 
 export async function saveSettings() {
-    await sb.from('settings').upsert({
-        user_id: S.userId,
-        data: S.settings,
-        updated_at: new Date().toISOString()
-    });
+    try {
+        const { error } = await sb.from('settings').upsert({
+            user_id: S.userId,
+            data: S.settings,
+            updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+    } catch (err) {
+        console.error('saveSettings error:', err);
+        showToast('Failed to save settings', 'error');
+    }
 }
 
 export async function loadMonth(y, m) {
     const k = monthKey(y, m);
     if (S.months[k]) return;
-    const { data, error } = await sb
-        .from('day_logs')
-        .select('data')
-        .eq('user_id', S.userId)
-        .eq('month_key', k)
-        .maybeSingle();
-    S.months[k] = (data && data.data) ? data.data : {};
+    try {
+        const { data, error } = await sb
+            .from('day_logs')
+            .select('data')
+            .eq('user_id', S.userId)
+            .eq('month_key', k)
+            .maybeSingle();
+        if (error) throw error;
+        S.months[k] = (data && data.data) ? data.data : {};
+    } catch (err) {
+        console.error('loadMonth error:', err);
+        showToast('Failed to load month data', 'error');
+        S.months[k] = {}; // Fallback to empty so app doesn't crash
+    }
 }
 
 export function getDayLog(dateStr) {
@@ -65,12 +97,18 @@ export function getDayLog(dateStr) {
 }
 
 export async function saveMonth(mk) {
-    await sb.from('day_logs').upsert({
-        user_id: S.userId,
-        month_key: mk,
-        data: S.months[mk] || {},
-        updated_at: new Date().toISOString()
-    });
+    try {
+        const { error } = await sb.from('day_logs').upsert({
+            user_id: S.userId,
+            month_key: mk,
+            data: S.months[mk] || {},
+            updated_at: new Date().toISOString()
+        });
+        if (error) throw error;
+    } catch (err) {
+        console.error('saveMonth error:', err);
+        showToast('Failed to save data. Check connection.', 'error');
+    }
 }
 
 // Flush any pending debounced save immediately

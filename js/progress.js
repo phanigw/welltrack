@@ -27,6 +27,7 @@ export async function loadProgress() {
         .order('check_in_date', { ascending: false });
     if (error) {
         console.error('loadProgress error:', error);
+        showToast('Failed to load progress history', 'error');
         return;
     }
     S.progressLogs = (data || []).map(row => ({
