@@ -598,7 +598,7 @@ async function renderDay() {
   html += `<div class="card wellness-compact">
     <div class="wellness-row-inline">
       <div class="wc-item">
-        <span class="wc-label">RT</span>
+        <span class="wc-label">Workout?</span>
         <label class="toggle">
           <input type="checkbox" id="inp-rt" ${log.resistanceTraining ? 'checked' : ''}>
           <span class="toggle-track"></span><span class="toggle-knob"></span>
@@ -612,9 +612,11 @@ async function renderDay() {
       </div>
       <div class="wc-item">
         <span class="wc-label">💧</span>
-        <span class="wc-water-count">${log.water || 0} / ${S.settings.waterTarget}</span>
-        <button class="qty-btn" id="water-minus">&minus;</button>
-        <button class="qty-btn" id="water-plus">+</button>
+        <span class="wc-water-count">${log.water || 0} / ${S.settings.waterTarget} oz</span>
+        <div class="wc-water-btns">
+          <button class="wc-qty-btn" id="water-minus">&minus;</button>
+          <button class="wc-qty-btn" id="water-plus">+</button>
+        </div>
       </div>
     </div>
     <div class="wc-steps-bar">

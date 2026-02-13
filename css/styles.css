@@ -483,7 +483,8 @@ input[type=text] {
 .wellness-row-inline {
   display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
@@ -521,6 +522,31 @@ input[type=text] {
   font-family: var(--font-mono);
   font-weight: 600;
   color: var(--water-color);
+}
+
+.wc-water-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.wc-qty-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s;
+}
+
+.wc-qty-btn:active {
+  background: var(--border);
 }
 
 .wc-steps-bar {
