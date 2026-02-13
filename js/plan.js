@@ -10,19 +10,19 @@ import { renderWorkoutPlan, attachWorkoutPlanEvents } from './workout-plan.js';
 // ============================================================
 
 export function applyTheme() {
-    const theme = S.settings.theme || 'auto';
-    if (theme === 'auto') {
-        document.documentElement.removeAttribute('data-theme');
-    } else {
-        document.documentElement.dataset.theme = theme;
-    }
+  const theme = S.settings.theme || 'auto';
+  if (theme === 'auto') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.dataset.theme = theme;
+  }
 }
 
 export function renderPlan() {
-    let html = '<div class="screen-title">Plan</div>';
+  let html = '<div class="screen-title">Plan</div>';
 
-    // Settings (always visible)
-    html += `<div class="card settings-card"><div class="card-title">Settings</div>
+  // Settings (always visible)
+  html += `<div class="card settings-card"><div class="card-title">Settings</div>
     <div class="setting-row"><label>Step Target</label>
       <input type="number" id="set-steps" value="${S.settings.stepTarget}" min="0" step="500" inputmode="numeric">
     </div>
@@ -44,9 +44,9 @@ export function renderPlan() {
     </div>
   </div>`;
 
-    // Reminders card
-    const rem = S.settings.reminders || { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
-    html += `<div class="card settings-card"><div class="card-title">Reminders</div>
+  // Reminders card
+  const rem = S.settings.reminders || { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
+  html += `<div class="card settings-card"><div class="card-title">Reminders</div>
     <div class="setting-row">
       <label>Enable Reminders</label>
       <label class="toggle">
@@ -90,14 +90,14 @@ export function renderPlan() {
     </div>
   </div>`;
 
-    // Pill tabs
-    html += `<div class="pill-tabs">
+  // Pill tabs
+  html += `<div class="pill-tabs">
     <button class="pill-tab ${S.planTab === 'diet' ? 'active' : ''}" data-plan-tab="diet">🍽 Diet</button>
     <button class="pill-tab ${S.planTab === 'workout' ? 'active' : ''}" data-plan-tab="workout">💪 Workout</button>
   </div>`;
 
-    if (S.planTab === 'diet') {
-        html += `<div class="card import-card">
+  if (S.planTab === 'diet') {
+    html += `<div class="card import-card">
       <div class="card-title">
         <span>Import Plan from Text</span>
         <button class="btn btn-sm btn-secondary" id="btn-toggle-import">Show</button>
@@ -108,22 +108,22 @@ export function renderPlan() {
       </div>
     </div>`;
 
-        S.plan.meals.forEach((meal, mi) => {
-            html += `<div class="plan-meal" data-mi="${mi}">
+    S.plan.meals.forEach((meal, mi) => {
+      html += `<div class="plan-meal" data-mi="${mi}">
       <div class="plan-meal-hdr">
         <input type="text" value="${escH(meal.name)}" data-field="mealname" data-mi="${mi}" placeholder="Meal name">
         <button class="btn-danger" data-action="del-meal" data-mi="${mi}">${SVG_X_CIRCLE}</button>
       </div>
       <div class="plan-items">`;
 
-            if (meal.items.length > 0) {
-                html += `<div class="plan-item-labels">
+      if (meal.items.length > 0) {
+        html += `<div class="plan-item-labels">
         <span>Item</span><span>Qty</span><span>Cal</span><span>P</span><span>C</span><span>F</span><span></span>
       </div>`;
-            }
+      }
 
-            meal.items.forEach((item, ii) => {
-                html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
+      meal.items.forEach((item, ii) => {
+        html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
         <div class="plan-item-grid">
           <div class="pi-name-wrap">
             <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
@@ -140,23 +140,23 @@ export function renderPlan() {
           <button class="btn-danger" data-action="del-item" data-mi="${mi}" data-ii="${ii}" style="min-width:32px;min-height:32px">${SVG_X_CIRCLE}</button>
         </div>
       </div>`;
-            });
+      });
 
-            html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">${SVG_PLUS} Add Food Item</button>
+      html += `<button class="btn-add" data-action="add-item" data-mi="${mi}">${SVG_PLUS} Add Food Item</button>
       </div></div>`;
-        });
+    });
 
-        html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">${SVG_PLUS} Add Meal</button>
+    html += `<button class="btn-add" id="btn-add-meal" style="margin-bottom:12px">${SVG_PLUS} Add Meal</button>
     <div class="plan-actions">
       <button class="btn btn-primary" id="btn-save-plan">Save Plan</button>
     </div>`;
-    } else {
-        // Workout tab
-        html += renderWorkoutPlan();
-    }
+  } else {
+    // Workout tab
+    html += renderWorkoutPlan();
+  }
 
-    // Data management
-    html += `<div class="card" style="margin-top:16px">
+  // Data management
+  html += `<div class="card" style="margin-top:16px">
     <div class="card-title">Data</div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-secondary" id="btn-export">Export JSON</button>
@@ -166,271 +166,298 @@ export function renderPlan() {
     </div>
   </div>`;
 
-    // Logout
-    html += `<div class="card" style="margin-top:4px">
+  // Logout
+  html += `<div class="card" style="margin-top:4px">
     <button class="btn-logout" id="btn-logout">Sign Out</button>
   </div>`;
 
-    document.getElementById('screen-plan').innerHTML = html;
-    attachPlanEvents();
+  document.getElementById('screen-plan').innerHTML = html;
+  attachPlanEvents();
+
+  // Attach autocomplete to all item inputs
+  import('./autocomplete.js').then(({ attachAutocomplete }) => {
+    document.querySelectorAll('#screen-plan input[data-field="name"]').forEach(inp => {
+      attachAutocomplete(inp, (result) => {
+        const mi = +inp.dataset.mi;
+        const ii = +inp.dataset.ii;
+        const item = S.plan.meals[mi].items[ii];
+        item.name = result.name;
+        item.qty = result.qty;
+        item.unit = result.unit;
+        item.calories = result.calories;
+        item.protein = result.protein;
+        item.carbs = result.carbs;
+        item.fat = result.fat;
+        // Re-render to show updated values
+        renderPlan();
+        // Focus next field (qty) or back to name? 
+        // Find the name input again to keep flow?
+        // Actually, maybe better to focus the qty input of that item
+        setTimeout(() => {
+          const nextInp = document.querySelector(`input[data-field="qty"][data-mi="${mi}"][data-ii="${ii}"]`);
+          if (nextInp) nextInp.focus();
+        }, 50);
+      });
+    });
+  });
 }
 
 function attachPlanEvents() {
-    const el = document.getElementById('screen-plan');
+  const el = document.getElementById('screen-plan');
 
-    // Pill tab switching
-    el.querySelectorAll('[data-plan-tab]').forEach(btn => {
-        btn.onclick = () => {
-            S.planTab = btn.dataset.planTab;
-            renderPlan();
-        };
-    });
+  // Pill tab switching
+  el.querySelectorAll('[data-plan-tab]').forEach(btn => {
+    btn.onclick = () => {
+      S.planTab = btn.dataset.planTab;
+      renderPlan();
+    };
+  });
 
-    // Import toggle (only on diet tab)
-    const importToggle = document.getElementById('btn-toggle-import');
-    if (importToggle) {
-        importToggle.onclick = () => {
-            const body = document.getElementById('import-body');
-            const visible = body.style.display !== 'none';
-            body.style.display = visible ? 'none' : 'block';
-            importToggle.textContent = visible ? 'Show' : 'Hide';
-        };
+  // Import toggle (only on diet tab)
+  const importToggle = document.getElementById('btn-toggle-import');
+  if (importToggle) {
+    importToggle.onclick = () => {
+      const body = document.getElementById('import-body');
+      const visible = body.style.display !== 'none';
+      body.style.display = visible ? 'none' : 'block';
+      importToggle.textContent = visible ? 'Show' : 'Hide';
+    };
+  }
+
+  // Import action (only on diet tab)
+  const importBtn = document.getElementById('btn-import-text');
+  if (importBtn) {
+    importBtn.onclick = async () => {
+      const text = document.getElementById('import-text').value;
+      const result = parsePlanText(text);
+      const hasItems = result.meals.some(m => m.items.length > 0);
+      if (!hasItems) {
+        alert('No meals with items found.\n\nExpected format:\nMeal Name\nFood, 50g, 180cal, 6p, 27c, 4f');
+        return;
+      }
+      S.plan = { ...result, workout: S.plan.workout || { type: 'split', days: [] } };
+      await savePlan();
+      renderPlan();
+    };
+  }
+
+  const stInp = document.getElementById('set-steps');
+  if (stInp) stInp.addEventListener('input', () => {
+    S.settings.stepTarget = Math.max(0, parseInt(stInp.value) || 10000);
+  });
+  const slInp = document.getElementById('set-sleep');
+  if (slInp) slInp.addEventListener('input', () => {
+    S.settings.sleepTarget = Math.max(0, parseFloat(slInp.value) || 8);
+  });
+  const wtInp = document.getElementById('set-water');
+  if (wtInp) wtInp.addEventListener('input', () => {
+    S.settings.waterTarget = Math.max(1, parseInt(wtInp.value) || 8);
+  });
+  const rtDurInp = document.getElementById('set-rest');
+  if (rtDurInp) rtDurInp.addEventListener('input', () => {
+    S.settings.restTimerDuration = Math.max(10, parseInt(rtDurInp.value) || 90);
+  });
+  const themeSelect = document.getElementById('set-theme');
+  if (themeSelect) themeSelect.addEventListener('change', () => {
+    S.settings.theme = themeSelect.value;
+    applyTheme();
+  });
+
+  // Reminder settings
+  const remEnabled = document.getElementById('rem-enabled');
+  if (remEnabled) remEnabled.addEventListener('change', async () => {
+    if (!S.settings.reminders) S.settings.reminders = { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
+    S.settings.reminders.enabled = remEnabled.checked;
+    const details = document.getElementById('rem-details');
+    if (details) details.style.display = remEnabled.checked ? 'block' : 'none';
+    if (remEnabled.checked) {
+      const { requestPermission, scheduleReminders } = await import('./notifications.js');
+      const perm = await requestPermission();
+      if (perm !== 'granted') {
+        showToast('Notification permission denied');
+        S.settings.reminders.enabled = false;
+        remEnabled.checked = false;
+        if (details) details.style.display = 'none';
+        return;
+      }
+      scheduleReminders();
+    } else {
+      const { clearReminders } = await import('./notifications.js');
+      clearReminders();
     }
+  });
+  ['rem-meal-on', 'rem-meal-time', 'rem-water-on', 'rem-water-int', 'rem-wo-on', 'rem-wo-time'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    inp.addEventListener('change', async () => {
+      if (!S.settings.reminders) return;
+      const r = S.settings.reminders;
+      r.mealLogging = { enabled: document.getElementById('rem-meal-on')?.checked || false, time: document.getElementById('rem-meal-time')?.value || '12:00' };
+      r.waterIntake = { enabled: document.getElementById('rem-water-on')?.checked || false, interval: parseInt(document.getElementById('rem-water-int')?.value) || 60 };
+      r.workout = { enabled: document.getElementById('rem-wo-on')?.checked || false, time: document.getElementById('rem-wo-time')?.value || '17:00' };
+      if (r.enabled) {
+        const { scheduleReminders } = await import('./notifications.js');
+        scheduleReminders();
+      }
+    });
+  });
 
-    // Import action (only on diet tab)
-    const importBtn = document.getElementById('btn-import-text');
-    if (importBtn) {
-        importBtn.onclick = async () => {
-            const text = document.getElementById('import-text').value;
-            const result = parsePlanText(text);
-            const hasItems = result.meals.some(m => m.items.length > 0);
-            if (!hasItems) {
-                alert('No meals with items found.\n\nExpected format:\nMeal Name\nFood, 50g, 180cal, 6p, 27c, 4f');
-                return;
-            }
-            S.plan = { ...result, workout: S.plan.workout || { type: 'split', days: [] } };
-            await savePlan();
-            renderPlan();
-        };
+  // Workout plan editor events (only on workout tab)
+  if (S.planTab === 'workout') {
+    attachWorkoutPlanEvents(el, savePlan);
+  }
+
+  el.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t.dataset.field) return;
+    const mi = t.dataset.mi !== undefined ? +t.dataset.mi : null;
+    const ii = t.dataset.ii !== undefined ? +t.dataset.ii : null;
+
+    if (t.dataset.field === 'mealname' && mi !== null) {
+      S.plan.meals[mi].name = t.value;
+    } else if (mi !== null && ii !== null) {
+      const numFields = ['qty', 'protein', 'carbs', 'fat', 'calories'];
+      if (numFields.includes(t.dataset.field)) {
+        S.plan.meals[mi].items[ii][t.dataset.field] = Math.max(0, parseFloat(t.value) || 0);
+      } else {
+        S.plan.meals[mi].items[ii][t.dataset.field] = t.value;
+      }
     }
+  });
 
-    const stInp = document.getElementById('set-steps');
-    if (stInp) stInp.addEventListener('input', () => {
-        S.settings.stepTarget = Math.max(0, parseInt(stInp.value) || 10000);
-    });
-    const slInp = document.getElementById('set-sleep');
-    if (slInp) slInp.addEventListener('input', () => {
-        S.settings.sleepTarget = Math.max(0, parseFloat(slInp.value) || 8);
-    });
-    const wtInp = document.getElementById('set-water');
-    if (wtInp) wtInp.addEventListener('input', () => {
-        S.settings.waterTarget = Math.max(1, parseInt(wtInp.value) || 8);
-    });
-    const rtDurInp = document.getElementById('set-rest');
-    if (rtDurInp) rtDurInp.addEventListener('input', () => {
-        S.settings.restTimerDuration = Math.max(10, parseInt(rtDurInp.value) || 90);
-    });
-    const themeSelect = document.getElementById('set-theme');
-    if (themeSelect) themeSelect.addEventListener('change', () => {
-        S.settings.theme = themeSelect.value;
-        applyTheme();
-    });
+  el.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const mi = +btn.dataset.mi;
 
-    // Reminder settings
-    const remEnabled = document.getElementById('rem-enabled');
-    if (remEnabled) remEnabled.addEventListener('change', async () => {
-        if (!S.settings.reminders) S.settings.reminders = { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
-        S.settings.reminders.enabled = remEnabled.checked;
-        const details = document.getElementById('rem-details');
-        if (details) details.style.display = remEnabled.checked ? 'block' : 'none';
-        if (remEnabled.checked) {
-            const { requestPermission, scheduleReminders } = await import('./notifications.js');
-            const perm = await requestPermission();
-            if (perm !== 'granted') {
-                showToast('Notification permission denied');
-                S.settings.reminders.enabled = false;
-                remEnabled.checked = false;
-                if (details) details.style.display = 'none';
-                return;
-            }
-            scheduleReminders();
-        } else {
-            const { clearReminders } = await import('./notifications.js');
-            clearReminders();
-        }
-    });
-    ['rem-meal-on', 'rem-meal-time', 'rem-water-on', 'rem-water-int', 'rem-wo-on', 'rem-wo-time'].forEach(id => {
-        const inp = document.getElementById(id);
-        if (!inp) return;
-        inp.addEventListener('change', async () => {
-            if (!S.settings.reminders) return;
-            const r = S.settings.reminders;
-            r.mealLogging = { enabled: document.getElementById('rem-meal-on')?.checked || false, time: document.getElementById('rem-meal-time')?.value || '12:00' };
-            r.waterIntake = { enabled: document.getElementById('rem-water-on')?.checked || false, interval: parseInt(document.getElementById('rem-water-int')?.value) || 60 };
-            r.workout = { enabled: document.getElementById('rem-wo-on')?.checked || false, time: document.getElementById('rem-wo-time')?.value || '17:00' };
-            if (r.enabled) {
-                const { scheduleReminders } = await import('./notifications.js');
-                scheduleReminders();
-            }
-        });
-    });
-
-    // Workout plan editor events (only on workout tab)
-    if (S.planTab === 'workout') {
-        attachWorkoutPlanEvents(el, savePlan);
-    }
-
-    el.addEventListener('input', (e) => {
-        const t = e.target;
-        if (!t.dataset.field) return;
-        const mi = t.dataset.mi !== undefined ? +t.dataset.mi : null;
-        const ii = t.dataset.ii !== undefined ? +t.dataset.ii : null;
-
-        if (t.dataset.field === 'mealname' && mi !== null) {
-            S.plan.meals[mi].name = t.value;
-        } else if (mi !== null && ii !== null) {
-            const numFields = ['qty', 'protein', 'carbs', 'fat', 'calories'];
-            if (numFields.includes(t.dataset.field)) {
-                S.plan.meals[mi].items[ii][t.dataset.field] = Math.max(0, parseFloat(t.value) || 0);
-            } else {
-                S.plan.meals[mi].items[ii][t.dataset.field] = t.value;
-            }
-        }
-    });
-
-    el.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.dataset.action;
-        const mi = +btn.dataset.mi;
-
-        if (action === 'search-food') {
-            const ii = +btn.dataset.ii;
-            const { openFoodSearch } = await import('./food-search.js');
-            openFoodSearch((result) => {
-                const item = S.plan.meals[mi].items[ii];
-                item.name = result.name;
-                item.qty = result.qty;
-                item.unit = result.unit;
-                item.calories = result.calories;
-                item.protein = result.protein;
-                item.carbs = result.carbs;
-                item.fat = result.fat;
-                renderPlan();
-            });
-            return;
-        }
-
-        if (action === 'del-meal') {
-            if (confirm('Delete this meal?')) { S.plan.meals.splice(mi, 1); renderPlan(); }
-        } else if (action === 'del-item') {
-            S.plan.meals[mi].items.splice(+btn.dataset.ii, 1);
-            renderPlan();
-        } else if (action === 'add-item') {
-            S.plan.meals[mi].items.push({
-                name: '', qty: 1, unit: 'g', protein: 0, carbs: 0, fat: 0, calories: 0
-            });
-            renderPlan();
-            const items = el.querySelectorAll(`.plan-item[data-mi="${mi}"]`);
-            const last = items[items.length - 1];
-            if (last) last.querySelector('input[data-field="name"]').focus();
-        }
-    });
-
-    document.getElementById('btn-add-meal').onclick = () => {
-        S.plan.meals.push({ name: 'Meal ' + (S.plan.meals.length + 1), items: [] });
+    if (action === 'search-food') {
+      const ii = +btn.dataset.ii;
+      const { openFoodSearch } = await import('./food-search.js');
+      openFoodSearch((result) => {
+        const item = S.plan.meals[mi].items[ii];
+        item.name = result.name;
+        item.qty = result.qty;
+        item.unit = result.unit;
+        item.calories = result.calories;
+        item.protein = result.protein;
+        item.carbs = result.carbs;
+        item.fat = result.fat;
         renderPlan();
-    };
+      });
+      return;
+    }
 
-    document.getElementById('btn-save-plan').onclick = async () => {
-        await Promise.all([savePlan(), saveSettings()]);
-        const btn = document.getElementById('btn-save-plan');
-        btn.textContent = 'Saved!';
-        btn.style.background = 'var(--green)';
-        setTimeout(() => { btn.textContent = 'Save Plan'; btn.style.background = ''; }, 1500);
-    };
+    if (action === 'del-meal') {
+      if (confirm('Delete this meal?')) { S.plan.meals.splice(mi, 1); renderPlan(); }
+    } else if (action === 'del-item') {
+      S.plan.meals[mi].items.splice(+btn.dataset.ii, 1);
+      renderPlan();
+    } else if (action === 'add-item') {
+      S.plan.meals[mi].items.push({
+        name: '', qty: 1, unit: 'g', protein: 0, carbs: 0, fat: 0, calories: 0
+      });
+      renderPlan();
+      const items = el.querySelectorAll(`.plan-item[data-mi="${mi}"]`);
+      const last = items[items.length - 1];
+      if (last) last.querySelector('input[data-field="name"]').focus();
+    }
+  });
 
-    // Export — fetch ALL months from Supabase
-    document.getElementById('btn-export').onclick = async () => {
-        const { data: rows } = await sb
-            .from('day_logs')
-            .select('month_key, data')
-            .eq('user_id', S.userId);
-        const allMonths = {};
-        if (rows) {
-            for (const row of rows) {
-                allMonths[row.month_key] = row.data;
-            }
+  document.getElementById('btn-add-meal').onclick = () => {
+    S.plan.meals.push({ name: 'Meal ' + (S.plan.meals.length + 1), items: [] });
+    renderPlan();
+  };
+
+  document.getElementById('btn-save-plan').onclick = async () => {
+    await Promise.all([savePlan(), saveSettings()]);
+    const btn = document.getElementById('btn-save-plan');
+    btn.textContent = 'Saved!';
+    btn.style.background = 'var(--green)';
+    setTimeout(() => { btn.textContent = 'Save Plan'; btn.style.background = ''; }, 1500);
+  };
+
+  // Export — fetch ALL months from Supabase
+  document.getElementById('btn-export').onclick = async () => {
+    const { data: rows } = await sb
+      .from('day_logs')
+      .select('month_key, data')
+      .eq('user_id', S.userId);
+    const allMonths = {};
+    if (rows) {
+      for (const row of rows) {
+        allMonths[row.month_key] = row.data;
+      }
+    }
+    // Fetch all progress logs
+    const { data: progRows } = await sb
+      .from('progress_logs')
+      .select('check_in_date, data')
+      .eq('user_id', S.userId);
+    const progressEntries = (progRows || []).map(r => ({ date: r.check_in_date, ...r.data }));
+    const exportData = { plan: S.plan, settings: S.settings, months: allMonths, progress: progressEntries };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'wellness-tracker-backup-' + todayStr() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import
+  document.getElementById('btn-import').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.plan) {
+          const errors = validatePlan(data.plan);
+          if (errors.length > 0) showToast(errors[0], 'error');
+          S.plan = data.plan;
+          await savePlan();
         }
-        // Fetch all progress logs
-        const { data: progRows } = await sb
-            .from('progress_logs')
-            .select('check_in_date, data')
-            .eq('user_id', S.userId);
-        const progressEntries = (progRows || []).map(r => ({ date: r.check_in_date, ...r.data }));
-        const exportData = { plan: S.plan, settings: S.settings, months: allMonths, progress: progressEntries };
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'wellness-tracker-backup-' + todayStr() + '.json';
-        a.click();
-        URL.revokeObjectURL(url);
+        if (data.settings) { S.settings = { ...S.settings, ...data.settings }; await saveSettings(); }
+        if (data.months) {
+          const upserts = [];
+          for (const mk in data.months) {
+            S.months[mk] = data.months[mk];
+            upserts.push({
+              user_id: S.userId,
+              month_key: mk,
+              data: data.months[mk],
+              updated_at: new Date().toISOString()
+            });
+          }
+          if (upserts.length > 0) {
+            await sb.from('day_logs').upsert(upserts);
+          }
+        }
+        if (data.progress && Array.isArray(data.progress)) {
+          const progUpserts = data.progress.map(e => ({
+            user_id: S.userId,
+            check_in_date: e.date,
+            data: { weight: e.weight || 0, chest: e.chest || 0, waist: e.waist || 0, hip: e.hip || 0 },
+            updated_at: new Date().toISOString()
+          }));
+          if (progUpserts.length > 0) {
+            await sb.from('progress_logs').upsert(progUpserts);
+          }
+          S.progressLogs = data.progress;
+        }
+        alert('Data imported successfully.');
+        renderPlan();
+      } catch (err) {
+        alert('Invalid file. Please select a valid JSON backup.');
+      }
     };
+    reader.readAsText(file);
+  };
 
-    // Import
-    document.getElementById('btn-import').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-            try {
-                const data = JSON.parse(ev.target.result);
-                if (data.plan) {
-                    const errors = validatePlan(data.plan);
-                    if (errors.length > 0) showToast(errors[0], 'error');
-                    S.plan = data.plan;
-                    await savePlan();
-                }
-                if (data.settings) { S.settings = { ...S.settings, ...data.settings }; await saveSettings(); }
-                if (data.months) {
-                    const upserts = [];
-                    for (const mk in data.months) {
-                        S.months[mk] = data.months[mk];
-                        upserts.push({
-                            user_id: S.userId,
-                            month_key: mk,
-                            data: data.months[mk],
-                            updated_at: new Date().toISOString()
-                        });
-                    }
-                    if (upserts.length > 0) {
-                        await sb.from('day_logs').upsert(upserts);
-                    }
-                }
-                if (data.progress && Array.isArray(data.progress)) {
-                    const progUpserts = data.progress.map(e => ({
-                        user_id: S.userId,
-                        check_in_date: e.date,
-                        data: { weight: e.weight || 0, chest: e.chest || 0, waist: e.waist || 0, hip: e.hip || 0 },
-                        updated_at: new Date().toISOString()
-                    }));
-                    if (progUpserts.length > 0) {
-                        await sb.from('progress_logs').upsert(progUpserts);
-                    }
-                    S.progressLogs = data.progress;
-                }
-                alert('Data imported successfully.');
-                renderPlan();
-            } catch (err) {
-                alert('Invalid file. Please select a valid JSON backup.');
-            }
-        };
-        reader.readAsText(file);
-    };
-
-    // Logout
-    document.getElementById('btn-logout').onclick = async () => {
-        await sb.auth.signOut();
-    };
+  // Logout
+  document.getElementById('btn-logout').onclick = async () => {
+    await sb.auth.signOut();
+  };
 }

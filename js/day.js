@@ -336,6 +336,21 @@ function attachDayEvents(ds) {
             scheduleSave(ds);
             renderDay();
         };
+
+        // Attach autocomplete to Extra Form
+        const efName = document.getElementById('ef-name');
+        if (efName) {
+            import('./autocomplete.js').then(({ attachAutocomplete }) => {
+                attachAutocomplete(efName, (item) => {
+                    efName.value = item.name;
+                    document.getElementById('ef-cal').value = item.calories;
+                    document.getElementById('ef-pro').value = item.protein;
+                    document.getElementById('ef-carb').value = item.carbs;
+                    document.getElementById('ef-fat').value = item.fat;
+                    import('./ui.js').then(m => m.showToast('Auto-filled 100g values', 'success'));
+                });
+            });
+        }
     };
 
     el.querySelectorAll('.extra-del').forEach(btn => {

@@ -1,0 +1,41 @@
+/* ── Autocomplete Dropdown ── */
+.autocomplete-dropdown {
+    position: absolute;
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    z-index: 99999;
+    max-height: 240px;
+    overflow-y: auto;
+    font-family: var(--font-sans);
+}
+
+.ac-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--card);
+    transition: background 0.1s;
+}
+
+.ac-item:last-child {
+    border-bottom: none;
+}
+
+.ac-item:hover {
+    background: var(--bg);
+}
+
+.ac-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.ac-meta {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+}
