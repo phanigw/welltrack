@@ -21,14 +21,14 @@
   --water-color: #42A5F5;
   --red: #DC3545;
   --green: #34c759;
-  --gold-bg: #fff8e1;
-  --gold-text: #f9a825;
-  --silver-bg: #eceff1;
-  --silver-text: #78909c;
-  --bronze-bg: #efebe9;
-  --bronze-text: #8d6e63;
-  --fail-bg: #ffebee;
-  --fail-text: #e53935;
+  --gold-bg: #fff3cd;
+  --gold-text: #e6a700;
+  --silver-bg: #e3edf5;
+  --silver-text: #607d8b;
+  --bronze-bg: #f0e0d0;
+  --bronze-text: #a1664e;
+  --fail-bg: #fdd;
+  --fail-text: #d32f2f;
   --safe-top: env(safe-area-inset-top);
   --safe-bot: env(safe-area-inset-bottom);
   --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -1184,23 +1184,11 @@ input[type=text] {
   opacity: .7
 }
 
-/* Calendar indicator dots and chips */
-.cal-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
+/* Calendar indicator chips */
 .cal-chip {
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1;
   white-space: nowrap;
-}
-
-.cal-chip-wo {
-  font-size: 9px;
 }
 
 /* ── Calendar Legend ── */

@@ -468,41 +468,32 @@ async function renderCalendar() {
     }
 
     let icons = '';
+    let tooltip = '';
     if (log && hasDayData(log)) {
-      // Diet indicator
-      if (score) {
-        const dietColors = { gold: '#FFB300', silver: '#90A4AE', bronze: '#A1887F', fail: '#E57373' };
-        icons += `<span class="cal-dot" style="background:${dietColors[score.diet]}" title="Diet: ${score.diet}"></span>`;
-      }
-
-      // Steps (abbreviated)
+      // Build hover tooltip
+      const tipParts = [];
+      const cals = consumedMacros(log);
+      if (cals.calories > 0) tipParts.push(`${cals.calories} cal`);
       const steps = safeNum(log.steps);
+      if (steps > 0) tipParts.push(`${steps.toLocaleString()} steps`);
+      if (log.resistanceTraining) {
+        const dayIdx = log.workoutDayIndex || 0;
+        const dayName = S.plan.workout?.days?.[dayIdx]?.name;
+        tipParts.push(dayName ? `Workout: ${dayName}` : 'Workout');
+      }
+      tooltip = tipParts.join(' · ');
+
+      // Cell icons: only steps + workout
       if (steps > 0) {
         const stepsK = steps >= 1000 ? (steps / 1000).toFixed(steps >= 10000 ? 0 : 1) + 'k' : steps;
-        icons += `<span class="cal-chip" title="${steps} steps">🏃${stepsK}</span>`;
+        icons += `<span class="cal-chip">🏃${stepsK}</span>`;
       }
-
-      // Workout
       if (log.resistanceTraining) {
-        // Check if exercises are complete
-        let allDone = false;
-        if (log.workout && log.workout.exercises) {
-          const dayIdx = log.workoutDayIndex || 0;
-          const plannedDay = S.plan.workout?.days?.[dayIdx];
-          if (plannedDay && plannedDay.exercises.length > 0) {
-            allDone = plannedDay.exercises.every((ex, i) => log.workout.exercises[i]?.completed);
-          }
-        }
-        icons += `<span class="cal-chip cal-chip-wo" title="Workout">${allDone ? '✅' : '🏋️'}</span>`;
-      }
-
-      // Water
-      if (safeNum(log.water) > 0) {
-        icons += `<span class="cal-chip" title="Water: ${log.water}">💧</span>`;
+        icons += `<span class="cal-chip">🏋️</span>`;
       }
     }
 
-    html += `<div class="${cls.join(' ')}" data-date="${ds}">
+    html += `<div class="${cls.join(' ')}" data-date="${ds}" ${tooltip ? `title="${escH(tooltip)}"` : ''}>
       <span class="cal-num">${d}</span>
       ${icons ? `<span class="cal-icons">${icons}</span>` : ''}
     </div>`;
