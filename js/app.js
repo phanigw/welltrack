@@ -6,6 +6,7 @@ import { renderCalendar } from './calendar.js';
 import { renderDay } from './day.js';
 import { renderPlan, applyTheme } from './plan.js';
 import { renderProgress, resetProgressState, loadProgress } from './progress.js';
+import { renderAnalytics } from './analytics.js';
 
 // ============================================================
 // SERVICE WORKER REGISTRATION
@@ -32,6 +33,7 @@ async function showScreen(name) {
   else if (name === 'day') await renderDay();
   else if (name === 'plan') renderPlan();
   else if (name === 'progress') { await loadProgress(); renderProgress(); }
+  else if (name === 'analytics') renderAnalytics();
 }
 
 document.querySelectorAll('#navbar button').forEach(btn => {

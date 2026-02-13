@@ -258,3 +258,36 @@ export async function getExercisePR(exerciseName) {
         return 0;
     }
 }
+
+export async function getExerciseHistoryMax(exerciseName) {
+    try {
+        // Get all sets for this exercise
+        const { data, error } = await sb
+            .from('workout_sets')
+            .select('date, weight')
+            .eq('user_id', S.userId)
+            .eq('exercise', exerciseName)
+            .order('date', { ascending: true });
+
+        if (error) throw error;
+        if (!data || data.length === 0) return [];
+
+        // Group by date and find max weight per date
+        const history = {};
+        data.forEach(row => {
+            const w = parseFloat(row.weight) || 0;
+            if (!history[row.date] || w > history[row.date]) {
+                history[row.date] = w;
+            }
+        });
+
+        // Convert to array
+        return Object.keys(history).map(date => ({
+            date: date,
+            weight: history[date]
+        }));
+    } catch (err) {
+        console.error('getExerciseHistoryMax error:', err);
+        return [];
+    }
+}
