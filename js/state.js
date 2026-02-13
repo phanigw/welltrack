@@ -15,5 +15,6 @@ export const S = {
   savePendingMonth: null,
   extraFormOpen: false,
   dayTab: 'food',
-  planTab: 'diet'
+  planTab: 'diet',
+  progressLogs: []
 };

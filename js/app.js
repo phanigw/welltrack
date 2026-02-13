@@ -6,6 +6,7 @@ import {
 import { circleSVG, macroBarPct, macroBarColor, renderMacrosCard } from './ui.js';
 import { renderWorkoutPlan, attachWorkoutPlanEvents } from './workout-plan.js';
 import { renderWorkoutSection, attachWorkoutDayEvents } from './workout-day.js';
+import { renderProgress, resetProgressState, loadProgress, saveProgressEntry, deleteProgressEntry } from './progress.js';
 
 // ============================================================
 // SERVICE WORKER REGISTRATION
@@ -292,6 +293,7 @@ function hasDayData(log) {
 // ============================================================
 async function showScreen(name) {
   flushSave();
+  if (S.screen !== 'progress' && name !== 'progress') resetProgressState();
   S.screen = name;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -301,6 +303,7 @@ async function showScreen(name) {
   if (name === 'calendar') await renderCalendar();
   else if (name === 'day') await renderDay();
   else if (name === 'plan') renderPlan();
+  else if (name === 'progress') { await loadProgress(); renderProgress(); }
 }
 
 document.querySelectorAll('#navbar button').forEach(btn => {
@@ -1161,7 +1164,13 @@ function attachPlanEvents() {
         allMonths[row.month_key] = row.data;
       }
     }
-    const exportData = { plan: S.plan, settings: S.settings, months: allMonths };
+    // Fetch all progress logs
+    const { data: progRows } = await sb
+      .from('progress_logs')
+      .select('check_in_date, data')
+      .eq('user_id', S.userId);
+    const progressEntries = (progRows || []).map(r => ({ date: r.check_in_date, ...r.data }));
+    const exportData = { plan: S.plan, settings: S.settings, months: allMonths, progress: progressEntries };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1195,6 +1204,18 @@ function attachPlanEvents() {
           if (upserts.length > 0) {
             await sb.from('day_logs').upsert(upserts);
           }
+        }
+        if (data.progress && Array.isArray(data.progress)) {
+          const progUpserts = data.progress.map(e => ({
+            user_id: S.userId,
+            check_in_date: e.date,
+            data: { weight: e.weight || 0, chest: e.chest || 0, waist: e.waist || 0, hip: e.hip || 0 },
+            updated_at: new Date().toISOString()
+          }));
+          if (progUpserts.length > 0) {
+            await sb.from('progress_logs').upsert(progUpserts);
+          }
+          S.progressLogs = data.progress;
         }
         alert('Data imported successfully.');
         renderPlan();
