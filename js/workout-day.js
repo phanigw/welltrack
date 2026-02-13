@@ -1,5 +1,6 @@
 import { S } from './state.js';
-import { escH, safeNum } from './helpers.js';
+import { escH, safeNum, fmtDate } from './helpers.js';
+import { getLastSession, getExercisePR } from './data.js';
 
 // ============================================================
 // DAILY WORKOUT TRACKING
@@ -79,6 +80,7 @@ export function renderWorkoutSection(log) {
         if (isExpanded) {
             html += `<div class="wo-exercise-body">`;
             if (ex.type === 'strength') {
+                html += `<div id="wo-history-${ei}" class="wo-history"></div>`;
                 html += renderStrengthSets(ex, exLog, ei);
             } else if (ex.type === 'cardio') {
                 html += renderCardioFields(ex, exLog, ei);
@@ -213,13 +215,20 @@ export function attachWorkoutDayEvents(ds, log, getDayLogFn, scheduleSaveFn, rer
 
         const act = action.dataset.woAction;
         const ei = action.dataset.woei !== undefined ? +action.dataset.woei : null;
-        const si = action.dataset.wosi !== undefined ? +action.dataset.wosi : null;
 
         if (act === 'expand' && ei !== null) {
             // Don't toggle if clicking the checkbox
             if (e.target.closest('[data-wo-action="toggle-exercise"]')) return;
-            expandedExercise = (expandedExercise === ei) ? -1 : ei;
+
+            const isOpening = expandedExercise !== ei;
+            expandedExercise = isOpening ? ei : -1;
             rerenderFn();
+
+            if (isOpening) {
+                // Lazy load history
+                const dayIdx = log.workoutDayIndex != null ? log.workoutDayIndex : 0;
+                loadHistoryForExercise(ei, dayIdx);
+            }
         } else if (act === 'toggle-exercise' && ei !== null) {
             e.stopPropagation();
             const exLog = getExerciseLog(log, ei);
@@ -327,4 +336,49 @@ function stopRestTimer() {
     timerActive = false;
     const timerEl = document.getElementById('wo-rest-timer');
     if (timerEl) timerEl.style.display = 'none';
+}
+
+async function loadHistoryForExercise(ei, dayIdx) {
+    const el = document.getElementById(`wo-history-${ei}`);
+    if (!el) return;
+
+    // Use current selected date as upper bound (exclusive)
+    const beforeDate = fmtDate(S.selectedDate);
+
+    // Get exercise name from plan
+    const wp = S.plan.workout;
+    const day = wp.days[dayIdx || 0];
+    if (!day || !day.exercises[ei]) return;
+    const exName = day.exercises[ei].name;
+
+    el.innerHTML = '<span class="wo-hist-loading">Loading...</span>';
+
+    const [history, pr] = await Promise.all([
+        getLastSession(exName, beforeDate),
+        getExercisePR(exName)
+    ]);
+
+    if (!history) {
+        el.innerHTML = '<span class="wo-hist-label">No previous history</span>';
+        // Still show PR if exists? Probably rare to have PR but no history if we cleared history?
+        // But getExercisePR queries ALL history. getLastSession queries BEFORE current date.
+        // So PR could exist from a future date (if we went back in time)?
+        // Edge case. Let's keep it simple.
+        return;
+    }
+
+    // Format sets
+    const setsStr = history.sets.map(s => {
+        return `${s.weight}×${s.reps}`;
+    }).join(', ');
+
+    // Format date text
+    const [y, m, d] = history.date.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    let prHtml = '';
+    if (pr > 0) prHtml = ` <span class="wo-pr-badge" style="color:var(--primary);margin-left:8px;font-size:0.9em">🏆 PR: ${pr}lbs</span>`;
+
+    el.innerHTML = `<span class="wo-hist-label">Last (${dateStr}):</span> <span class="wo-hist-val">${setsStr}</span>${prHtml}`;
 }

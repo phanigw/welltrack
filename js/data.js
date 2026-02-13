@@ -121,6 +121,12 @@ export function flushSave() {
             S.savePendingMonth = null;
             saveMonth(mk); // fire-and-forget
         }
+        if (S.savePendingDates.size > 0) {
+            for (const date of S.savePendingDates) {
+                saveWorkoutForDate(date);
+            }
+            S.savePendingDates.clear();
+        }
     }
 }
 
@@ -133,11 +139,122 @@ export function scheduleSave(dateStr) {
         flushSave();
     }
 
+    if (dateStr) S.savePendingDates.add(dateStr);
+
     clearTimeout(S.saveTimer);
     S.savePendingMonth = mk;
     S.saveTimer = setTimeout(() => {
-        saveMonth(mk); // fire-and-forget
-        S.saveTimer = null;
-        S.savePendingMonth = null;
+        flushSave();
     }, 400);
+}
+
+export async function saveWorkoutForDate(date) {
+    // 1. Delete existing sets for this date
+    try {
+        const { error: delErr } = await sb
+            .from('workout_sets')
+            .delete()
+            .eq('user_id', S.userId)
+            .eq('date', date);
+        if (delErr) throw delErr;
+
+        // 2. If no resistance training, we are done (date was cleared)
+        const log = getDayLog(date);
+        if (!log.resistanceTraining || !log.workout || !log.workout.exercises) return;
+
+        // 3. Extract sets from log
+        // We need to resolve exercise names from S.plan
+        const wp = S.plan.workout;
+        if (!wp || !wp.days) return;
+
+        const dayIdx = log.workoutDayIndex != null ? log.workoutDayIndex : 0;
+        const dayPlan = wp.days[dayIdx];
+        if (!dayPlan || !dayPlan.exercises) return;
+
+        const rows = [];
+        Object.entries(log.workout.exercises).forEach(([eiStr, exLog]) => {
+            const ei = parseInt(eiStr);
+            const exPlan = dayPlan.exercises[ei];
+            if (!exPlan || !exLog.sets || exLog.sets.length === 0) return;
+
+            exLog.sets.forEach((set, si) => {
+                rows.push({
+                    user_id: S.userId,
+                    date: date,
+                    exercise: exPlan.name || 'Unknown',
+                    set_index: si,
+                    weight: set.weight || 0,
+                    reps: set.reps || 0,
+                    updated_at: new Date().toISOString()
+                });
+            });
+        });
+
+        if (rows.length === 0) return;
+
+        // 4. Insert new sets
+        const { error: insErr } = await sb
+            .from('workout_sets')
+            .insert(rows);
+        if (insErr) throw insErr;
+
+    } catch (err) {
+        console.error('saveWorkoutForDate error:', err);
+        // We don't showToast here to avoid spamming user on every autosave,
+        // unless it's a critical failure pattern.
+    }
+}
+
+export async function getLastSession(exerciseName, beforeDate) {
+    try {
+        // 1. Find the most recent date before 'beforeDate'
+        const { data: dateData, error: dateErr } = await sb
+            .from('workout_sets')
+            .select('date')
+            .eq('user_id', S.userId)
+            .eq('exercise', exerciseName)
+            .lt('date', beforeDate)
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (dateErr || !dateData) return null;
+
+        const lastDate = dateData.date;
+
+        // 2. Get all sets for that date
+        const { data: setsData, error: setsErr } = await sb
+            .from('workout_sets')
+            .select('weight, reps')
+            .eq('user_id', S.userId)
+            .eq('exercise', exerciseName)
+            .eq('date', lastDate)
+            .order('set_index', { ascending: true });
+
+        if (setsErr || !setsData) return null;
+
+        return { date: lastDate, sets: setsData };
+    } catch (err) {
+        console.error('getLastSession error:', err);
+        return null;
+    }
+}
+
+export async function getExercisePR(exerciseName) {
+    try {
+        const { data, error } = await sb
+            .from('workout_sets')
+            .select('weight')
+            .eq('user_id', S.userId)
+            .eq('exercise', exerciseName)
+            .order('weight', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error || !data) return 0;
+        return data.weight || 0;
+    } catch (err) {
+        console.error('getExercisePR error:', err);
+        return 0;
+    }
 }

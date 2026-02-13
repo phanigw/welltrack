@@ -13,6 +13,7 @@ export const S = {
   months: {},
   saveTimer: null,
   savePendingMonth: null,
+  savePendingDates: new Set(),
   extraFormOpen: false,
   dayTab: 'food',
   planTab: 'diet',
