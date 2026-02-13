@@ -1,11 +1,11 @@
 import { S } from './state.js';
 import {
-    fmtDate, escH, safeNum,
+    fmtDate, escH, safeNum, clampNum,
     SVG_CHEVRON_LEFT, SVG_CHEVRON_RIGHT, SVG_X_CIRCLE, SVG_PLUS
 } from './helpers.js';
 import { circleSVG, renderMacrosCard } from './ui.js';
 import { renderWorkoutSection, attachWorkoutDayEvents } from './workout-day.js';
-import { getDayLog, loadMonth, flushSave, scheduleSave } from './data.js';
+import { getDayLog, loadMonth, flushSave, scheduleSave, saveSettings } from './data.js';
 import { planTargets, consumedMacros, calcScore } from './scoring.js';
 
 // ============================================================
@@ -24,6 +24,19 @@ export async function renderDay() {
     const ds = fmtDate(S.selectedDate);
     await loadMonth(S.selectedDate.getFullYear(), S.selectedDate.getMonth());
     const log = getDayLog(ds);
+
+    // Auto-apply workout schedule for fresh days
+    const schedule = S.plan.workout?.schedule;
+    if (schedule && log.workoutDayIndex == null && !log.resistanceTraining) {
+        const dow = S.selectedDate.getDay();
+        const scheduledIdx = schedule[dow];
+        if (scheduledIdx != null) {
+            log.workoutDayIndex = scheduledIdx;
+            log.resistanceTraining = true;
+            scheduleSave(ds);
+        }
+    }
+
     const targets = planTargets();
     const consumed = consumedMacros(log);
     const score = calcScore(log);
@@ -98,6 +111,13 @@ export async function renderDay() {
 
     // Tab content
     if (S.dayTab === 'food') {
+        // Quick-log shortcut buttons
+        html += `<div class="quick-log-bar">
+      <button class="btn btn-sm btn-secondary" id="btn-repeat-yesterday">📋 Repeat Yesterday</button>
+      <button class="btn btn-sm btn-secondary" id="btn-save-fav">⭐ Save Fav</button>
+      <button class="btn btn-sm btn-secondary" id="btn-load-fav">📂 Load Fav</button>
+    </div>`;
+
         if (S.plan.meals.length === 0) {
             html += '<div class="empty-msg">No diet plan set up yet.<br>Go to the Plan tab to create one.</div>';
         } else {
@@ -132,7 +152,10 @@ export async function renderDay() {
 
         html += `<div class="extras-hdr">
       <span>Extra Items (${(log.extras || []).length})</span>
-      <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-secondary" id="btn-food-search">🔍 Search</button>
+        <button class="btn btn-sm btn-primary" id="btn-add-extra">${SVG_PLUS} Add</button>
+      </div>
     </div>`;
         html += '<div id="extra-form-area"></div>';
 
@@ -233,7 +256,7 @@ function attachDayEvents(ds) {
 
     const stepsInp = document.getElementById('inp-steps');
     if (stepsInp) stepsInp.addEventListener('input', () => {
-        getDayLog(ds).steps = Math.max(0, parseInt(stepsInp.value) || 0);
+        getDayLog(ds).steps = clampNum(parseInt(stepsInp.value) || 0, 0, 999999);
         scheduleSave(ds);
         updateDayCircles(ds);
     });
@@ -257,7 +280,7 @@ function attachDayEvents(ds) {
 
     const sleepInp = document.getElementById('inp-sleep');
     if (sleepInp) sleepInp.addEventListener('input', () => {
-        getDayLog(ds).sleep = Math.max(0, parseFloat(sleepInp.value) || 0);
+        getDayLog(ds).sleep = clampNum(parseFloat(sleepInp.value) || 0, 0, 24);
         scheduleSave(ds);
     });
 
@@ -271,7 +294,7 @@ function attachDayEvents(ds) {
     };
     if (waterPlus) waterPlus.onclick = () => {
         const log = getDayLog(ds);
-        log.water = safeNum(log.water) + 1;
+        log.water = clampNum(safeNum(log.water) + 1, 0, 99);
         scheduleSave(ds);
         updateDayCircles(ds);
     };
@@ -323,6 +346,125 @@ function attachDayEvents(ds) {
             renderDay();
         };
     });
+
+    // ── Food Search ──
+    const foodSearchBtn = document.getElementById('btn-food-search');
+    if (foodSearchBtn) foodSearchBtn.onclick = async () => {
+        const { openFoodSearch } = await import('./food-search.js');
+        openFoodSearch((result) => {
+            const log = getDayLog(ds);
+            if (!log.extras) log.extras = [];
+            log.extras.push({
+                name: result.name,
+                calories: result.calories,
+                protein: result.protein,
+                carbs: result.carbs,
+                fat: result.fat,
+                qty: result.qty
+            });
+            scheduleSave(ds);
+            renderDay();
+        });
+    };
+
+    // ── Quick-Log: Repeat Yesterday ──
+    const repeatBtn = document.getElementById('btn-repeat-yesterday');
+    if (repeatBtn) repeatBtn.onclick = async () => {
+        const yesterday = new Date(S.selectedDate);
+        yesterday.setDate(yesterday.getDate() - 1);
+        await loadMonth(yesterday.getFullYear(), yesterday.getMonth());
+        const yd = fmtDate(yesterday);
+        const yParts = yd.split('-');
+        const yMk = yParts[0] + '-' + yParts[1];
+        const yDay = yParts[2];
+        const yData = S.months[yMk] && S.months[yMk][yDay];
+        if (!yData || (!yData.items && !(yData.extras && yData.extras.length))) {
+            import('./ui.js').then(m => m.showToast('No food data from yesterday'));
+            return;
+        }
+        const log = getDayLog(ds);
+        if (yData.items) log.items = JSON.parse(JSON.stringify(yData.items));
+        if (yData.extras) log.extras = JSON.parse(JSON.stringify(yData.extras));
+        scheduleSave(ds);
+        renderDay();
+    };
+
+    // ── Quick-Log: Save Favorite ──
+    const saveFavBtn = document.getElementById('btn-save-fav');
+    if (saveFavBtn) saveFavBtn.onclick = () => {
+        const name = prompt('Name this favorite:');
+        if (!name) return;
+        const log = getDayLog(ds);
+        if (!S.settings.favorites) S.settings.favorites = [];
+        S.settings.favorites.push({
+            name,
+            items: JSON.parse(JSON.stringify(log.items || {})),
+            extras: JSON.parse(JSON.stringify(log.extras || []))
+        });
+        saveSettings();
+        import('./ui.js').then(m => m.showToast('Favorite saved!', 'success'));
+    };
+
+    // ── Quick-Log: Load Favorite ──
+    const loadFavBtn = document.getElementById('btn-load-fav');
+    if (loadFavBtn) loadFavBtn.onclick = () => {
+        const favs = S.settings.favorites || [];
+        if (favs.length === 0) {
+            import('./ui.js').then(m => m.showToast('No favorites saved yet'));
+            return;
+        }
+        const area = document.getElementById('extra-form-area');
+        let html = '<div class="fav-overlay">';
+        html += '<div class="fav-overlay-title">Load Favorite</div>';
+        favs.forEach((fav, fi) => {
+            html += `<div class="fav-item" data-fav-idx="${fi}">
+              <span class="fav-item-name">${escH(fav.name)}</span>
+              <button class="btn-danger btn-xs" data-fav-del="${fi}" title="Delete">×</button>
+            </div>`;
+        });
+        html += '<button class="btn btn-sm btn-secondary" id="fav-close" style="width:100%;margin-top:8px">Cancel</button>';
+        html += '</div>';
+        area.innerHTML = html;
+
+        area.querySelectorAll('[data-fav-idx]').forEach(el => {
+            el.onclick = (e) => {
+                if (e.target.closest('[data-fav-del]')) return;
+                const fav = favs[+el.dataset.favIdx];
+                const log = getDayLog(ds);
+                log.items = JSON.parse(JSON.stringify(fav.items));
+                log.extras = JSON.parse(JSON.stringify(fav.extras));
+                scheduleSave(ds);
+                renderDay();
+            };
+        });
+        area.querySelectorAll('[data-fav-del]').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                S.settings.favorites.splice(+btn.dataset.favDel, 1);
+                saveSettings();
+                loadFavBtn.click(); // re-render list
+            };
+        });
+        const closeBtn = document.getElementById('fav-close');
+        if (closeBtn) closeBtn.onclick = () => { area.innerHTML = ''; };
+    };
+
+    // ── Swipe Gestures ──
+    let touchStartX = 0;
+    el.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    el.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].screenX - touchStartX;
+        if (Math.abs(dx) < 80) return;
+        flushSave();
+        if (dx > 0) {
+            S.selectedDate.setDate(S.selectedDate.getDate() - 1);
+        } else {
+            S.selectedDate.setDate(S.selectedDate.getDate() + 1);
+        }
+        renderDay();
+    }, { passive: true });
 }
 
 function updateDayCircles(ds) {

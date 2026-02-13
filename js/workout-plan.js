@@ -51,6 +51,26 @@ export function renderWorkoutPlan() {
     html += `<button class="btn-add" id="wp-add-day">${SVG_PLUS} Add Workout Day</button>`;
   }
 
+  // Weekly schedule (split mode only)
+  if (isSplit && w.days.length > 0) {
+    if (!w.schedule) w.schedule = {};
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    html += `<div class="wp-schedule-grid">
+      <div class="card-title" style="margin-bottom:8px"><span>Weekly Schedule</span></div>`;
+    for (let dow = 0; dow < 7; dow++) {
+      const val = w.schedule[dow];
+      const options = [`<option value="rest"${val == null ? ' selected' : ''}>Rest</option>`];
+      w.days.forEach((d, di) => {
+        options.push(`<option value="${di}"${val === di ? ' selected' : ''}>${escH(d.name || 'Day ' + (di + 1))}</option>`);
+      });
+      html += `<div class="wp-sched-row">
+        <span class="wp-sched-day">${dayNames[dow]}</span>
+        <select data-wp-field="schedule" data-dow="${dow}">${options.join('')}</select>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
   // Import from text
   html += `<div class="wp-import" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
     <div class="card-title">
@@ -310,6 +330,21 @@ export function attachWorkoutPlanEvents(parentEl, savePlanFn) {
       else if (field === 'targetWeight') ex.targetWeight = parseFloat(t.value) || 0;
       else if (field === 'targetDuration') ex.targetDuration = parseFloat(t.value) || 0;
       else if (field === 'targetDistance') ex.targetDistance = parseFloat(t.value) || 0;
+    }
+  });
+
+  // Schedule change
+  card.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.dataset.wpField === 'schedule') {
+      const dow = +t.dataset.dow;
+      if (!S.plan.workout.schedule) S.plan.workout.schedule = {};
+      if (t.value === 'rest') {
+        S.plan.workout.schedule[dow] = null;
+      } else {
+        S.plan.workout.schedule[dow] = parseInt(t.value);
+      }
+      return;
     }
   });
 

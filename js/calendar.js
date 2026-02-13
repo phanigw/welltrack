@@ -5,6 +5,7 @@ import {
 } from './helpers.js';
 import { loadMonth } from './data.js';
 import { calcScore, consumedMacros, hasDayData } from './scoring.js';
+import { renderDashboard } from './dashboard.js';
 
 // ============================================================
 // CALENDAR
@@ -15,6 +16,9 @@ export async function renderCalendar(showScreenFn) {
     const mk = monthKey(S.calYear, S.calMonth);
     const logs = S.months[mk] || {};
     const today = todayStr();
+
+    // Pre-load dashboard (loads prev month for streak)
+    const dashboardHtml = await renderDashboard();
     const monthNames = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
@@ -25,6 +29,7 @@ export async function renderCalendar(showScreenFn) {
 
     let html = `
     <div class="screen-title">Calendar</div>
+    ${dashboardHtml}
     <div class="nav-bar">
       <button class="nav-btn" id="cal-prev">${SVG_CHEVRON_LEFT}</button>
       <div style="text-align:center">

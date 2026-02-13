@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wellness-tracker-v15';
+const CACHE_NAME = 'wellness-tracker-v16';
 const ASSETS = [
   './',
   './index.html',
@@ -12,13 +12,14 @@ const ASSETS = [
   './js/scoring.js',
   './js/auth.js',
   './js/calendar.js',
+  './js/dashboard.js',
   './js/day.js',
   './js/plan.js',
   './js/workout-plan.js',
   './js/workout-day.js',
-  './js/progress.js',
   './manifest.json',
   './icons/icon.svg'
+  // progress.js, analytics.js are lazy-loaded (cached via stale-while-revalidate on first use)
 ];
 
 // Install: cache core assets individually (don't fail-all on one 404)
@@ -56,6 +57,9 @@ self.addEventListener('fetch', (e) => {
 
   // Skip Supabase API calls — let them go straight to network
   if (url.hostname.endsWith('.supabase.co')) return;
+
+  // Skip OpenFoodFacts API calls
+  if (url.hostname.endsWith('openfoodfacts.org')) return;
 
   // Network-first for HTML (ensures updates reach users quickly)
   if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {

@@ -1,5 +1,5 @@
 import { S } from './state.js';
-import { safeNum } from './helpers.js';
+import { safeNum, clampNum } from './helpers.js';
 
 // ============================================================
 // MACROS & SCORING
@@ -155,6 +155,48 @@ export function parsePlanText(text) {
         }
     }
     return { meals };
+}
+
+export function validatePlan(plan) {
+    const errors = [];
+    if (!plan || typeof plan !== 'object') return ['Plan data is not an object'];
+
+    // Validate meals
+    if (!Array.isArray(plan.meals)) {
+        plan.meals = [];
+        errors.push('Missing meals array — initialized to empty');
+    }
+    for (const meal of plan.meals) {
+        if (!meal.name || typeof meal.name !== 'string') meal.name = 'Untitled Meal';
+        if (!Array.isArray(meal.items)) { meal.items = []; continue; }
+        for (const item of meal.items) {
+            if (!item.name || typeof item.name !== 'string') item.name = 'Untitled';
+            item.qty = clampNum(item.qty, 0, 99999);
+            item.calories = clampNum(item.calories, 0, 99999);
+            item.protein = clampNum(item.protein, 0, 9999);
+            item.carbs = clampNum(item.carbs, 0, 9999);
+            item.fat = clampNum(item.fat, 0, 9999);
+            if (!item.unit || typeof item.unit !== 'string') item.unit = 'g';
+        }
+    }
+
+    // Validate workout structure
+    if (plan.workout && typeof plan.workout === 'object') {
+        if (!['split', 'fixed'].includes(plan.workout.type)) plan.workout.type = 'split';
+        if (!Array.isArray(plan.workout.days)) plan.workout.days = [];
+        for (const day of plan.workout.days) {
+            if (!day.name || typeof day.name !== 'string') day.name = 'Workout';
+            if (!Array.isArray(day.exercises)) { day.exercises = []; continue; }
+            for (const ex of day.exercises) {
+                if (!ex.name || typeof ex.name !== 'string') ex.name = 'Exercise';
+                ex.targetSets = clampNum(ex.targetSets, 0, 100);
+                ex.targetReps = clampNum(ex.targetReps, 0, 999);
+                ex.targetWeight = clampNum(ex.targetWeight, 0, 9999);
+            }
+        }
+    }
+
+    return errors;
 }
 
 export function hasDayData(log) {

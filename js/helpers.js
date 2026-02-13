@@ -35,6 +35,11 @@ export function safeNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+export function clampNum(v, min, max) {
+  const n = safeNum(v);
+  return Math.min(Math.max(n, min), max);
+}
+
 // SVG Icons
 export const SVG_CHEVRON_LEFT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 4 7 10 13 16"/></svg>`;
 export const SVG_CHEVRON_RIGHT = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 4 13 10 7 16"/></svg>`;

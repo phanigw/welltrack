@@ -1,12 +1,13 @@
 import { sb, S } from './state.js';
 import { monthKey } from './helpers.js';
-import { loadPlan, loadSettings, loadMonth, flushSave } from './data.js';
+import { loadPlan, loadSettings, loadMonth, flushSave, hasPendingRetries } from './data.js';
 import { renderAuth } from './auth.js';
 import { renderCalendar } from './calendar.js';
 import { renderDay } from './day.js';
 import { renderPlan, applyTheme } from './plan.js';
-import { renderProgress, resetProgressState, loadProgress } from './progress.js';
-import { renderAnalytics } from './analytics.js';
+// progress.js and analytics.js are lazy-loaded on first navigation
+let progressModule = null;
+let analyticsModule = null;
 
 // ============================================================
 // SERVICE WORKER REGISTRATION
@@ -22,7 +23,9 @@ if ('serviceWorker' in navigator) {
 // ============================================================
 async function showScreen(name) {
   flushSave();
-  if (S.screen !== 'progress' && name !== 'progress') resetProgressState();
+  if (S.screen !== 'progress' && name !== 'progress' && progressModule) {
+    progressModule.resetProgressState();
+  }
   S.screen = name;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
@@ -32,8 +35,15 @@ async function showScreen(name) {
   if (name === 'calendar') await renderCalendar(showScreen);
   else if (name === 'day') await renderDay();
   else if (name === 'plan') renderPlan();
-  else if (name === 'progress') { await loadProgress(); renderProgress(); }
-  else if (name === 'analytics') renderAnalytics();
+  else if (name === 'progress') {
+    if (!progressModule) progressModule = await import('./progress.js');
+    await progressModule.loadProgress();
+    progressModule.renderProgress();
+  }
+  else if (name === 'analytics') {
+    if (!analyticsModule) analyticsModule = await import('./analytics.js');
+    analyticsModule.renderAnalytics();
+  }
 }
 
 document.querySelectorAll('#navbar button').forEach(btn => {
@@ -72,10 +82,30 @@ async function initApp(userId) {
     console.error('initApp error:', err);
   }
 
+  // Check if onboarding needed
+  const { shouldShowOnboarding, startOnboarding } = await import('./onboarding.js');
+  if (shouldShowOnboarding()) {
+    showLoadingOverlay(false);
+    document.getElementById('navbar').style.display = 'none';
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-onboarding').classList.add('active');
+    startOnboarding(async () => {
+      document.getElementById('navbar').style.display = '';
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      await showScreen('calendar');
+    });
+    return;
+  }
+
   // Show navbar, hide auth
   document.getElementById('navbar').style.display = '';
   showLoadingOverlay(false);
   await showScreen('calendar');
+
+  // Init reminders if enabled
+  if (S.settings.reminders && S.settings.reminders.enabled) {
+    import('./notifications.js').then(m => m.scheduleReminders());
+  }
 }
 
 function showAuthScreen() {
@@ -108,5 +138,11 @@ sb.auth.onAuthStateChange((event, session) => {
   }
 })();
 
-// Flush save before the user leaves the page
-window.addEventListener('beforeunload', flushSave);
+// Flush save before the user leaves the page; warn if retries pending
+window.addEventListener('beforeunload', (e) => {
+  flushSave();
+  if (hasPendingRetries()) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});

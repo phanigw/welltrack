@@ -3,11 +3,58 @@ import { monthKey, fmtDate, parseDateParts } from './helpers.js';
 import { showToast } from './ui.js';
 
 // ============================================================
+// RETRY QUEUE WITH EXPONENTIAL BACKOFF
+// ============================================================
+
+const RETRY_DELAYS = [2000, 5000, 15000]; // 2s, 5s, 15s
+let pendingRetries = 0;
+
+function isAuthError(err) {
+    if (!err) return false;
+    const status = err.status || err.code;
+    if (status === 401 || status === 403) return true;
+    const msg = (err.message || '').toLowerCase();
+    return msg.includes('jwt') || msg.includes('token') || msg.includes('unauthorized');
+}
+
+async function withRetry(fn, label) {
+    for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (isAuthError(err)) {
+                try {
+                    const { error: refreshErr } = await sb.auth.refreshSession();
+                    if (refreshErr) throw refreshErr;
+                    return await fn(); // One retry after refresh
+                } catch {
+                    await sb.auth.signOut();
+                    return;
+                }
+            }
+            if (attempt < RETRY_DELAYS.length) {
+                pendingRetries++;
+                console.warn(`${label}: retry ${attempt + 1} in ${RETRY_DELAYS[attempt]}ms`, err);
+                await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
+                pendingRetries--;
+            } else {
+                console.error(`${label}: all retries failed`, err);
+                showToast(`Failed to ${label}. Check connection.`, 'error');
+            }
+        }
+    }
+}
+
+export function hasPendingRetries() {
+    return pendingRetries > 0;
+}
+
+// ============================================================
 // DATA ACCESS (Supabase)
 // ============================================================
 
 export async function loadPlan() {
-    try {
+    await withRetry(async () => {
         const { data, error } = await sb
             .from('plans')
             .select('data')
@@ -15,28 +62,22 @@ export async function loadPlan() {
             .maybeSingle();
         if (error) throw error;
         if (data && data.data) S.plan = data.data;
-    } catch (err) {
-        console.error('loadPlan error:', err);
-        showToast('Failed to load plan', 'error');
-    }
+    }, 'load plan');
 }
 
 export async function savePlan() {
-    try {
+    await withRetry(async () => {
         const { error } = await sb.from('plans').upsert({
             user_id: S.userId,
             data: S.plan,
             updated_at: new Date().toISOString()
         });
         if (error) throw error;
-    } catch (err) {
-        console.error('savePlan error:', err);
-        showToast('Failed to save plan', 'error');
-    }
+    }, 'save plan');
 }
 
 export async function loadSettings() {
-    try {
+    await withRetry(async () => {
         const { data, error } = await sb
             .from('settings')
             .select('data')
@@ -44,30 +85,24 @@ export async function loadSettings() {
             .maybeSingle();
         if (error) throw error;
         if (data && data.data) S.settings = { ...S.settings, ...data.data };
-    } catch (err) {
-        console.error('loadSettings error:', err);
-        showToast('Failed to load settings', 'error');
-    }
+    }, 'load settings');
 }
 
 export async function saveSettings() {
-    try {
+    await withRetry(async () => {
         const { error } = await sb.from('settings').upsert({
             user_id: S.userId,
             data: S.settings,
             updated_at: new Date().toISOString()
         });
         if (error) throw error;
-    } catch (err) {
-        console.error('saveSettings error:', err);
-        showToast('Failed to save settings', 'error');
-    }
+    }, 'save settings');
 }
 
 export async function loadMonth(y, m) {
     const k = monthKey(y, m);
     if (S.months[k]) return;
-    try {
+    await withRetry(async () => {
         const { data, error } = await sb
             .from('day_logs')
             .select('data')
@@ -76,11 +111,8 @@ export async function loadMonth(y, m) {
             .maybeSingle();
         if (error) throw error;
         S.months[k] = (data && data.data) ? data.data : {};
-    } catch (err) {
-        console.error('loadMonth error:', err);
-        showToast('Failed to load month data', 'error');
-        S.months[k] = {}; // Fallback to empty so app doesn't crash
-    }
+    }, 'load month data');
+    if (!S.months[k]) S.months[k] = {}; // Fallback so app doesn't crash
 }
 
 export function getDayLog(dateStr) {
@@ -97,7 +129,7 @@ export function getDayLog(dateStr) {
 }
 
 export async function saveMonth(mk) {
-    try {
+    await withRetry(async () => {
         const { error } = await sb.from('day_logs').upsert({
             user_id: S.userId,
             month_key: mk,
@@ -105,10 +137,7 @@ export async function saveMonth(mk) {
             updated_at: new Date().toISOString()
         });
         if (error) throw error;
-    } catch (err) {
-        console.error('saveMonth error:', err);
-        showToast('Failed to save data. Check connection.', 'error');
-    }
+    }, 'save data');
 }
 
 // Flush any pending debounced save immediately
@@ -149,8 +178,8 @@ export function scheduleSave(dateStr) {
 }
 
 export async function saveWorkoutForDate(date) {
-    // 1. Delete existing sets for this date
-    try {
+    await withRetry(async () => {
+        // 1. Delete existing sets for this date
         const { error: delErr } = await sb
             .from('workout_sets')
             .delete()
@@ -163,7 +192,6 @@ export async function saveWorkoutForDate(date) {
         if (!log.resistanceTraining || !log.workout || !log.workout.exercises) return;
 
         // 3. Extract sets from log
-        // We need to resolve exercise names from S.plan
         const wp = S.plan.workout;
         if (!wp || !wp.days) return;
 
@@ -197,12 +225,7 @@ export async function saveWorkoutForDate(date) {
             .from('workout_sets')
             .insert(rows);
         if (insErr) throw insErr;
-
-    } catch (err) {
-        console.error('saveWorkoutForDate error:', err);
-        // We don't showToast here to avoid spamming user on every autosave,
-        // unless it's a critical failure pattern.
-    }
+    }, 'save workout');
 }
 
 export async function getLastSession(exerciseName, beforeDate) {

@@ -1,7 +1,8 @@
 import { sb, S } from './state.js';
 import { todayStr, escH, safeNum, SVG_X_CIRCLE, SVG_PLUS } from './helpers.js';
 import { savePlan, saveSettings } from './data.js';
-import { parsePlanText } from './scoring.js';
+import { parsePlanText, validatePlan } from './scoring.js';
+import { showToast } from './ui.js';
 import { renderWorkoutPlan, attachWorkoutPlanEvents } from './workout-plan.js';
 
 // ============================================================
@@ -43,6 +44,52 @@ export function renderPlan() {
     </div>
   </div>`;
 
+    // Reminders card
+    const rem = S.settings.reminders || { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
+    html += `<div class="card settings-card"><div class="card-title">Reminders</div>
+    <div class="setting-row">
+      <label>Enable Reminders</label>
+      <label class="toggle">
+        <input type="checkbox" id="rem-enabled" ${rem.enabled ? 'checked' : ''}>
+        <span class="toggle-track"></span><span class="toggle-knob"></span>
+      </label>
+    </div>
+    <div id="rem-details" style="display:${rem.enabled ? 'block' : 'none'}">
+      <div class="setting-row">
+        <label>Meal Logging</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label class="toggle toggle-sm">
+            <input type="checkbox" id="rem-meal-on" ${rem.mealLogging?.enabled ? 'checked' : ''}>
+            <span class="toggle-track"></span><span class="toggle-knob"></span>
+          </label>
+          <input type="time" id="rem-meal-time" value="${rem.mealLogging?.time || '12:00'}" style="width:auto;padding:4px 8px">
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>Water Intake</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label class="toggle toggle-sm">
+            <input type="checkbox" id="rem-water-on" ${rem.waterIntake?.enabled ? 'checked' : ''}>
+            <span class="toggle-track"></span><span class="toggle-knob"></span>
+          </label>
+          <span style="font-size:12px;color:var(--text2)">every</span>
+          <input type="number" id="rem-water-int" value="${rem.waterIntake?.interval || 60}" min="15" max="240" step="15" style="width:60px;padding:4px 6px;text-align:center" inputmode="numeric">
+          <span style="font-size:12px;color:var(--text2)">min</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>Workout</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label class="toggle toggle-sm">
+            <input type="checkbox" id="rem-wo-on" ${rem.workout?.enabled ? 'checked' : ''}>
+            <span class="toggle-track"></span><span class="toggle-knob"></span>
+          </label>
+          <input type="time" id="rem-wo-time" value="${rem.workout?.time || '17:00'}" style="width:auto;padding:4px 8px">
+        </div>
+      </div>
+    </div>
+  </div>`;
+
     // Pill tabs
     html += `<div class="pill-tabs">
     <button class="pill-tab ${S.planTab === 'diet' ? 'active' : ''}" data-plan-tab="diet">🍽 Diet</button>
@@ -78,7 +125,10 @@ export function renderPlan() {
             meal.items.forEach((item, ii) => {
                 html += `<div class="plan-item" data-mi="${mi}" data-ii="${ii}">
         <div class="plan-item-grid">
-          <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
+          <div class="pi-name-wrap">
+            <input type="text" value="${escH(item.name)}" data-field="name" data-mi="${mi}" data-ii="${ii}" placeholder="Food item">
+            <button class="pi-search-btn" data-action="search-food" data-mi="${mi}" data-ii="${ii}" title="Search">🔍</button>
+          </div>
           <div class="pi-qty-wrap">
             <input type="number" value="${item.qty}" data-field="qty" data-mi="${mi}" data-ii="${ii}" min="0" step="0.5" placeholder="Qty" inputmode="decimal">
             <input type="text" value="${escH(item.unit)}" data-field="unit" data-mi="${mi}" data-ii="${ii}" placeholder="unit">
@@ -186,6 +236,45 @@ function attachPlanEvents() {
         applyTheme();
     });
 
+    // Reminder settings
+    const remEnabled = document.getElementById('rem-enabled');
+    if (remEnabled) remEnabled.addEventListener('change', async () => {
+        if (!S.settings.reminders) S.settings.reminders = { enabled: false, mealLogging: { enabled: false, time: '12:00' }, waterIntake: { enabled: false, interval: 60 }, workout: { enabled: false, time: '17:00' } };
+        S.settings.reminders.enabled = remEnabled.checked;
+        const details = document.getElementById('rem-details');
+        if (details) details.style.display = remEnabled.checked ? 'block' : 'none';
+        if (remEnabled.checked) {
+            const { requestPermission, scheduleReminders } = await import('./notifications.js');
+            const perm = await requestPermission();
+            if (perm !== 'granted') {
+                showToast('Notification permission denied');
+                S.settings.reminders.enabled = false;
+                remEnabled.checked = false;
+                if (details) details.style.display = 'none';
+                return;
+            }
+            scheduleReminders();
+        } else {
+            const { clearReminders } = await import('./notifications.js');
+            clearReminders();
+        }
+    });
+    ['rem-meal-on', 'rem-meal-time', 'rem-water-on', 'rem-water-int', 'rem-wo-on', 'rem-wo-time'].forEach(id => {
+        const inp = document.getElementById(id);
+        if (!inp) return;
+        inp.addEventListener('change', async () => {
+            if (!S.settings.reminders) return;
+            const r = S.settings.reminders;
+            r.mealLogging = { enabled: document.getElementById('rem-meal-on')?.checked || false, time: document.getElementById('rem-meal-time')?.value || '12:00' };
+            r.waterIntake = { enabled: document.getElementById('rem-water-on')?.checked || false, interval: parseInt(document.getElementById('rem-water-int')?.value) || 60 };
+            r.workout = { enabled: document.getElementById('rem-wo-on')?.checked || false, time: document.getElementById('rem-wo-time')?.value || '17:00' };
+            if (r.enabled) {
+                const { scheduleReminders } = await import('./notifications.js');
+                scheduleReminders();
+            }
+        });
+    });
+
     // Workout plan editor events (only on workout tab)
     if (S.planTab === 'workout') {
         attachWorkoutPlanEvents(el, savePlan);
@@ -209,11 +298,28 @@ function attachPlanEvents() {
         }
     });
 
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', async (e) => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
         const action = btn.dataset.action;
         const mi = +btn.dataset.mi;
+
+        if (action === 'search-food') {
+            const ii = +btn.dataset.ii;
+            const { openFoodSearch } = await import('./food-search.js');
+            openFoodSearch((result) => {
+                const item = S.plan.meals[mi].items[ii];
+                item.name = result.name;
+                item.qty = result.qty;
+                item.unit = result.unit;
+                item.calories = result.calories;
+                item.protein = result.protein;
+                item.carbs = result.carbs;
+                item.fat = result.fat;
+                renderPlan();
+            });
+            return;
+        }
 
         if (action === 'del-meal') {
             if (confirm('Delete this meal?')) { S.plan.meals.splice(mi, 1); renderPlan(); }
@@ -280,7 +386,12 @@ function attachPlanEvents() {
         reader.onload = async (ev) => {
             try {
                 const data = JSON.parse(ev.target.result);
-                if (data.plan) { S.plan = data.plan; await savePlan(); }
+                if (data.plan) {
+                    const errors = validatePlan(data.plan);
+                    if (errors.length > 0) showToast(errors[0], 'error');
+                    S.plan = data.plan;
+                    await savePlan();
+                }
                 if (data.settings) { S.settings = { ...S.settings, ...data.settings }; await saveSettings(); }
                 if (data.months) {
                     const upserts = [];
