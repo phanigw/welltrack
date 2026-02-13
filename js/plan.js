@@ -8,6 +8,15 @@ import { renderWorkoutPlan, attachWorkoutPlanEvents } from './workout-plan.js';
 // PLAN EDITOR
 // ============================================================
 
+export function applyTheme() {
+    const theme = S.settings.theme || 'auto';
+    if (theme === 'auto') {
+        document.documentElement.removeAttribute('data-theme');
+    } else {
+        document.documentElement.dataset.theme = theme;
+    }
+}
+
 export function renderPlan() {
     let html = '<div class="screen-title">Plan</div>';
 
@@ -24,6 +33,13 @@ export function renderPlan() {
     </div>
     <div class="setting-row"><label>Rest Timer (sec)</label>
       <input type="number" id="set-rest" value="${S.settings.restTimerDuration}" min="10" max="300" step="5" inputmode="numeric">
+    </div>
+    <div class="setting-row"><label>Theme</label>
+      <select id="set-theme">
+        <option value="auto"${S.settings.theme === 'auto' ? ' selected' : ''}>Auto</option>
+        <option value="light"${S.settings.theme === 'light' ? ' selected' : ''}>Light</option>
+        <option value="dark"${S.settings.theme === 'dark' ? ' selected' : ''}>Dark</option>
+      </select>
     </div>
   </div>`;
 
@@ -163,6 +179,11 @@ function attachPlanEvents() {
     const rtDurInp = document.getElementById('set-rest');
     if (rtDurInp) rtDurInp.addEventListener('input', () => {
         S.settings.restTimerDuration = Math.max(10, parseInt(rtDurInp.value) || 90);
+    });
+    const themeSelect = document.getElementById('set-theme');
+    if (themeSelect) themeSelect.addEventListener('change', () => {
+        S.settings.theme = themeSelect.value;
+        applyTheme();
     });
 
     // Workout plan editor events (only on workout tab)

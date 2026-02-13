@@ -36,10 +36,51 @@
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
+/* Dark theme */
+[data-theme="dark"] {
+  --bg: #1c1c1e;
+  --card: #2c2c2e;
+  --text: #f2f2f7;
+  --text2: #98989d;
+  --border: #3a3a3c;
+  --accent: #D4AF37;
+  --accent-light: #E8C547;
+  --gold-bg: #3d3520;
+  --gold-text: #f5d060;
+  --silver-bg: #2a3340;
+  --silver-text: #90b0c8;
+  --bronze-bg: #3a2c20;
+  --bronze-text: #d4a07a;
+  --fail-bg: #3a2020;
+  --fail-text: #ff6b6b;
+}
+
+/* Auto-detect dark mode unless user explicitly chose light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1c1c1e;
+    --card: #2c2c2e;
+    --text: #f2f2f7;
+    --text2: #98989d;
+    --border: #3a3a3c;
+    --accent: #D4AF37;
+    --accent-light: #E8C547;
+    --gold-bg: #3d3520;
+    --gold-text: #f5d060;
+    --silver-bg: #2a3340;
+    --silver-text: #90b0c8;
+    --bronze-bg: #3a2c20;
+    --bronze-text: #d4a07a;
+    --fail-bg: #3a2020;
+    --fail-text: #ff6b6b;
+  }
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
+  color-scheme: light dark;
   font-size: 15px;
   line-height: 1.4;
   overscroll-behavior: none;
@@ -55,10 +96,16 @@ textarea {
   font-size: inherit
 }
 
-input[type=number],
-input[type=text] {
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),
+select,
+textarea {
   -webkit-user-select: text;
-  user-select: text
+  user-select: text;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
 }
 
 /* ── Layout ── */

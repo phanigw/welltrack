@@ -6,7 +6,7 @@ export const S = {
   userId: null,
   screen: 'calendar',
   plan: { meals: [], workout: { type: 'split', days: [] } },
-  settings: { stepTarget: 10000, sleepTarget: 8, waterTarget: 8, restTimerDuration: 90 },
+  settings: { stepTarget: 10000, sleepTarget: 8, waterTarget: 8, restTimerDuration: 90, theme: 'auto' },
   selectedDate: new Date(),
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),

@@ -4,7 +4,7 @@ import { loadPlan, loadSettings, loadMonth, flushSave } from './data.js';
 import { renderAuth } from './auth.js';
 import { renderCalendar } from './calendar.js';
 import { renderDay } from './day.js';
-import { renderPlan } from './plan.js';
+import { renderPlan, applyTheme } from './plan.js';
 import { renderProgress, resetProgressState, loadProgress } from './progress.js';
 
 // ============================================================
@@ -65,6 +65,7 @@ async function initApp(userId) {
       loadSettings(),
       loadMonth(S.calYear, S.calMonth)
     ]);
+    applyTheme(); // Apply saved theme preference
   } catch (err) {
     console.error('initApp error:', err);
   }
