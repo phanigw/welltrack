@@ -475,6 +475,75 @@ input[type=text] {
   font-weight: 500
 }
 
+/* ── Compact Wellness Card ── */
+.wellness-compact {
+  padding: 12px 16px;
+}
+
+.wellness-row-inline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.wc-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wc-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.wc-input {
+  width: 52px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  text-align: center;
+  background: var(--bg);
+}
+
+.wc-unit {
+  font-size: 12px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+.wc-water-count {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--water-color);
+}
+
+.wc-steps-bar {
+  margin-top: 2px;
+}
+
+.wc-steps-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.wc-steps-icon {
+  font-size: 16px;
+}
+
+.wc-steps-input {
+  width: 72px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 /* ── Toggle ── */
 .toggle {
   position: relative;

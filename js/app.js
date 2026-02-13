@@ -592,39 +592,40 @@ async function renderDay() {
     html += renderMacrosCard(consumed, targets);
   }
 
-  // Wellness card (always visible)
-  html += `<div class="card">
-    <div class="steps-row">
-      ${circleSVG(log.steps || 0, S.settings.stepTarget, 'var(--steps-color)', 70)}
-      <div class="steps-input-wrap">
-        <input type="number" id="inp-steps" value="${log.steps || ''}"
-          placeholder="Steps walked" min="0" step="100" inputmode="numeric">
-        <div class="steps-target">Target: ${S.settings.stepTarget.toLocaleString()} steps</div>
-      </div>
-    </div>
-    <div class="wellness-row">
-      <div class="wellness-item">
-        <label>Resistance Training</label>
+  // Wellness card (always visible) — compact layout
+  const stepPct = Math.min(100, Math.round(((log.steps || 0) / S.settings.stepTarget) * 100));
+  const stepBarColor = stepPct >= 100 ? 'var(--green)' : stepPct >= 60 ? 'var(--steps-color)' : '#ccc';
+  html += `<div class="card wellness-compact">
+    <div class="wellness-row-inline">
+      <div class="wc-item">
+        <span class="wc-label">RT</span>
         <label class="toggle">
           <input type="checkbox" id="inp-rt" ${log.resistanceTraining ? 'checked' : ''}>
           <span class="toggle-track"></span><span class="toggle-knob"></span>
         </label>
       </div>
-      <div class="wellness-item">
-        <label>Sleep</label>
-        <div class="sleep-input">
-          <input type="number" id="inp-sleep" value="${log.sleep || ''}"
-            placeholder="0" min="0" max="24" step="0.5" inputmode="decimal">
-          <span>/ ${S.settings.sleepTarget} hrs</span>
-        </div>
+      <div class="wc-item">
+        <span class="wc-label">😴</span>
+        <input type="number" class="wc-input" id="inp-sleep" value="${log.sleep || ''}"
+          placeholder="0" min="0" max="24" step="0.5" inputmode="decimal">
+        <span class="wc-unit">/ ${S.settings.sleepTarget}h</span>
       </div>
-      <div class="wellness-item water-item">
-        <label>Water</label>
-        ${circleSVG(log.water || 0, S.settings.waterTarget, 'var(--water-color)', 56)}
-        <div class="water-ctrl">
-          <button class="qty-btn" id="water-minus">&minus;</button>
-          <button class="qty-btn" id="water-plus">+</button>
-        </div>
+      <div class="wc-item">
+        <span class="wc-label">💧</span>
+        <span class="wc-water-count">${log.water || 0} / ${S.settings.waterTarget}</span>
+        <button class="qty-btn" id="water-minus">&minus;</button>
+        <button class="qty-btn" id="water-plus">+</button>
+      </div>
+    </div>
+    <div class="wc-steps-bar">
+      <div class="wc-steps-top">
+        <span class="wc-steps-icon">🏃</span>
+        <input type="number" class="wc-input wc-steps-input" id="inp-steps" value="${log.steps || ''}"
+          placeholder="Steps" min="0" step="100" inputmode="numeric">
+        <span class="wc-unit">/ ${S.settings.stepTarget.toLocaleString()}</span>
+      </div>
+      <div class="macro-main-bar">
+        <div class="macro-main-bar-fill" style="width:${stepPct}%;background:${stepBarColor}"></div>
       </div>
     </div>
   </div>`;
