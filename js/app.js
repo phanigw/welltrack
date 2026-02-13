@@ -468,18 +468,38 @@ async function renderCalendar() {
     }
 
     let icons = '';
-    if (log) {
-      if (log.resistanceTraining) {
-        let label = SVG_DUMBBELL;
-        // Try to get abbreviated day name (e.g. "Pu" for Push, "Le" for Legs)
-        if (log.workoutDayIndex !== null && S.plan.workout?.days?.[log.workoutDayIndex]) {
-          const name = S.plan.workout.days[log.workoutDayIndex].name;
-          if (name) label = name.slice(0, 2);
-        }
-        icons += `<span class="cal-icon-rt" title="Training">${label}</span>`;
+    if (log && hasDayData(log)) {
+      // Diet indicator
+      if (score) {
+        const dietColors = { gold: '#FFB300', silver: '#90A4AE', bronze: '#A1887F', fail: '#E57373' };
+        icons += `<span class="cal-dot" style="background:${dietColors[score.diet]}" title="Diet: ${score.diet}"></span>`;
       }
-      if (safeNum(log.sleep) > 0) icons += `<span>${log.sleep}h</span>`;
-      if (safeNum(log.water) > 0) icons += `<span class="cal-icon-water" title="Water">💧</span>`;
+
+      // Steps (abbreviated)
+      const steps = safeNum(log.steps);
+      if (steps > 0) {
+        const stepsK = steps >= 1000 ? (steps / 1000).toFixed(steps >= 10000 ? 0 : 1) + 'k' : steps;
+        icons += `<span class="cal-chip" title="${steps} steps">🏃${stepsK}</span>`;
+      }
+
+      // Workout
+      if (log.resistanceTraining) {
+        // Check if exercises are complete
+        let allDone = false;
+        if (log.workout && log.workout.exercises) {
+          const dayIdx = log.workoutDayIndex || 0;
+          const plannedDay = S.plan.workout?.days?.[dayIdx];
+          if (plannedDay && plannedDay.exercises.length > 0) {
+            allDone = plannedDay.exercises.every((ex, i) => log.workout.exercises[i]?.completed);
+          }
+        }
+        icons += `<span class="cal-chip cal-chip-wo" title="Workout">${allDone ? '✅' : '🏋️'}</span>`;
+      }
+
+      // Water
+      if (safeNum(log.water) > 0) {
+        icons += `<span class="cal-chip" title="Water: ${log.water}">💧</span>`;
+      }
     }
 
     html += `<div class="${cls.join(' ')}" data-date="${ds}">
